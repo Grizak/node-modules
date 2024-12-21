@@ -3,9 +3,10 @@ const fs = require("fs");
 
 class LogManager {
   constructor(options = {}) {
-    this.logFile = options.logFile || path.join(__dirname, "logs.txt");
+    this.logFile = options.logFile || path.join(process.cwd(), "logs.txt");
     this.levels = options.levels || ["info", "warn", "error", "debug"];
-    this.consoleOutput = options.consoleOutput !== false; // Default true
+    this.consoleOnly = options.consoleOnly;
+    this.fileOnly = options.fileOnly;
   }
 
   formatTimestamp() {
@@ -24,12 +25,15 @@ class LogManager {
     const timestamp = this.formatTimestamp();
     const formattedMessage = `[${timestamp}] [${level.toUpperCase()}]: ${message}`;
 
-    // Write to console
-    if (this.consoleOutput) {
-      console.log(formattedMessage);
+    if (this.consoleOnly) {
+      return console.log(formattedMessage);
     }
 
-    // Write to file
+    if (this.fileOnly) {
+      return fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+    }
+
+    console.log(formattedMessage);
     fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
   }
 
