@@ -1,4 +1,4 @@
-# LogManager
+# NodeLoggerg
 
 A simple logging manager for Node.js that helps manage logging for your application. It writes logs to both the console and a log file. You can easily configure the log levels and the location of the log file.
 
@@ -15,5 +15,6 @@ A simple logging manager for Node.js that helps manage logging for your applicat
 You can install this package via npm:
 
 ```bash
-npm install lodemanager
+npm install nodeloggerg
 ```
+Alternately, you can clone the repository and use it directly in the project
