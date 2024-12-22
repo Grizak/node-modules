@@ -74,6 +74,23 @@ const logger = new logManager({
 });
 ```
 
+### Web Server
+
+The module also has a web server now, that you can start like this:
+
+``` javascript
+const logger = new logManager({
+    startWebServer: true, // This will start the web server
+});
+
+const logger = new logManager({
+    startWebServer: true,
+    serverPort: 4000, // Sets the port that the server will run on
+})
+```
+
+This will start a web server on default port `4500`
+
 ### Configuraton options
 
 | Option | Type | Default | Description |
@@ -82,6 +99,8 @@ const logger = new logManager({
 | `levels` | `Array` | `['Info', 'warn', 'error', 'debug']` | The log levels to include in the logs. |
 | `consoleOnly` | `Boolean` | `undefined` | Choose if the logs should only be printed in the console. |
 | `fileOnly` | `Boolean` | `undefined` | Choose if the logs should only be written to the `logFile`. |
+| `startWebServer` | `Boolean` | `false` | Choose whether the web server should start or not |
+| `serverPort` | `Number` | `4500` | Choose what port the web server should run on |
 
 ### Licence
 

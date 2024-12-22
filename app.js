@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const http = require("http");
 
 class LogManager {
   constructor(options = {}) {
@@ -7,6 +8,12 @@ class LogManager {
     this.levels = options.levels || ["info", "warn", "error", "debug"];
     this.consoleOnly = options.consoleOnly;
     this.fileOnly = options.fileOnly;
+    this.serverPort = options.serverPort | 4500;
+    this.startWebServer = options.startWebServer | false;
+
+    if (this.startWebServer) {
+      this.startServer();
+    }
   }
 
   formatTimestamp() {
@@ -51,6 +58,54 @@ class LogManager {
 
   debug(message) {
     this.log("debug", message);
+  }
+
+  startServer() {
+    const server = http.createServer((req, res) => {
+      if (req.url === "/") {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        const html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Log Viewer</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; overflow: auto; }
+                </style>
+            </head>
+            <body>
+                <h1>Log Viewer</h1>
+                <pre id="logs"></pre>
+                <script>
+                    setInterval(() => {
+                        fetch('/logs')
+                            .then(response => response.text())
+                            .then(data => {
+                                document.getElementById('logs').textContent = data;
+                            });
+                    }, 1000); // Refresh logs every second
+                </script>
+            </body>
+            </html>`;
+        res.end(html);
+      } else if (req.url === "/logs") {
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        const logContent = fs.existsSync(this.logFile)
+          ? fs.readFileSync(this.logFile, "utf-8")
+          : "No logs yet!";
+        res.end(logContent);
+      } else {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Not Found");
+      }
+    });
+
+    server.listen(this.serverPort, () => {
+      console.log(`Log Viewer running at http://localhost:${this.serverPort}`);
+    });
   }
 }
 
