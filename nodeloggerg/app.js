@@ -8,7 +8,7 @@ class LogManager {
     this.levels = options.levels || ["info", "warn", "error", "debug"];
     this.consoleOnly = options.consoleOnly;
     this.fileOnly = options.fileOnly;
-    this.serverPort = options.serverPort | 4500;
+    this.serverPort = options.serverPort | 9001;
     this.startWebServer = options.startWebServer | false;
 
     if (this.startWebServer) {
