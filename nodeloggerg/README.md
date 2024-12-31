@@ -85,11 +85,11 @@ const logger = new logManager({
 
 const logger = new logManager({
     startWebServer: true,
-    serverPort: 4000, // Sets the port that the server will run on
+    serverPort: 9001, // Sets the port that the server will run on
 })
 ```
 
-This will start a web server on default port `4500`
+This will start a web server on default port `9001`
 
 ### Configuraton options
 
@@ -100,7 +100,7 @@ This will start a web server on default port `4500`
 | `consoleOnly` | `Boolean` | `undefined` | Choose if the logs should only be printed in the console. |
 | `fileOnly` | `Boolean` | `undefined` | Choose if the logs should only be written to the `logFile`. |
 | `startWebServer` | `Boolean` | `false` | Choose whether the web server should start or not |
-| `serverPort` | `Number` | `4500` | Choose what port the web server should run on |
+| `serverPort` | `Number` | `9001` | Choose what port the web server should run on |
 
 ### Licence
 
