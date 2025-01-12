@@ -2,14 +2,36 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 
+/**
+ * @typedef {Object} LogManagerOptions
+ * @property {string} [logFile] - The path to the log file.
+ * @property {Array<string>} [levels] - An array of log levels (e.g., "info", "warn", "error", "debug").
+ * @property {boolean} [consoleOnly] - If true, logs will only appear in the console.
+ * @property {boolean} [fileOnly] - If true, logs will only be written to a file.
+ * @property {number} [serverPort] - The port on which the log viewer server will run.
+ * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
+ */
+
+/**
+ * LogManager class to handle logging and log viewing.
+ * @class
+ */
 class LogManager {
+  /**
+   * @param {LogManagerOptions} [options={}] - Options to configure the LogManager.
+   */
   constructor(options = {}) {
     this.logFile = options.logFile || path.join(process.cwd(), "logs.txt");
     this.levels = options.levels || ["info", "warn", "error", "debug"];
-    this.consoleOnly = options.consoleOnly;
-    this.fileOnly = options.fileOnly;
-    this.serverPort = options.serverPort | 9001;
-    this.startWebServer = options.startWebServer | false;
+    this.consoleOnly = options.consoleOnly || false;
+    this.fileOnly = options.fileOnly || false;
+    this.serverPort = options.serverPort || 9001;
+    this.startWebServer = options.startWebServer || false;
+
+    // Validate that both consoleOnly and fileOnly are not set to true at the same time
+    if (this.consoleOnly && this.fileOnly) {
+      throw new Error("Cannot have both consoleOnly and fileOnly set to true.");
+    }
 
     if (this.startWebServer) {
       this.startServer();
@@ -17,11 +39,10 @@ class LogManager {
   }
 
   formatTimestamp() {
-    const isoString = new Date().toISOString(); // e.g., 2024-12-21T11:10:23.061Z
-    const [date, time] = isoString.split("T"); // Split into date and time
-    const formattedTime = time.slice(0, 8); // Remove milliseconds and 'Z'
-
-    return `${date} ${formattedTime}`; // e.g., 2024-12-21 11:10:23
+    const isoString = new Date().toISOString();
+    const [date, time] = isoString.split("T");
+    const formattedTime = time.slice(0, 8);
+    return `${date} ${formattedTime}`;
   }
 
   log(level, message) {
@@ -33,15 +54,13 @@ class LogManager {
     const formattedMessage = `[${timestamp}] [${level.toUpperCase()}]: ${message}`;
 
     if (this.consoleOnly) {
-      return console.log(formattedMessage);
+      console.log(formattedMessage);
+    } else if (this.fileOnly) {
+      fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+    } else {
+      console.log(formattedMessage);
+      fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
     }
-
-    if (this.fileOnly) {
-      return fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
-    }
-
-    console.log(formattedMessage);
-    fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
   }
 
   info(message) {
@@ -65,31 +84,31 @@ class LogManager {
       if (req.url === "/") {
         res.writeHead(200, { "Content-Type": "text/html" });
         const html = `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Log Viewer</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; overflow: auto; }
-                </style>
-            </head>
-            <body>
-                <h1>Log Viewer</h1>
-                <pre id="logs"></pre>
-                <script>
-                    setInterval(() => {
-                        fetch('/logs')
-                            .then(response => response.text())
-                            .then(data => {
-                                document.getElementById('logs').textContent = data;
-                            });
-                    }, 1000); // Refresh logs every second
-                </script>
-            </body>
-            </html>`;
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Log Viewer</title>
+              <style>
+                  body { font-family: Arial, sans-serif; padding: 20px; }
+                  pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; overflow: auto; }
+              </style>
+          </head>
+          <body>
+              <h1>Log Viewer</h1>
+              <pre id="logs"></pre>
+              <script>
+                  setInterval(() => {
+                      fetch('/logs')
+                          .then(response => response.text())
+                          .then(data => {
+                              document.getElementById('logs').textContent = data;
+                          });
+                  }, 1000);
+              </script>
+          </body>
+          </html>`;
         res.end(html);
       } else if (req.url === "/logs") {
         res.writeHead(200, { "Content-Type": "text/plain" });
