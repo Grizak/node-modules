@@ -63,19 +63,23 @@ class LogManager {
     }
   }
 
-  info(message) {
+  info(...args) {
+    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
     this.log("info", message);
   }
 
-  warn(message) {
+  warn(...args) {
+    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
     this.log("warn", message);
   }
 
-  error(message) {
+  error(...args) {
+    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
     this.log("error", message);
   }
 
-  debug(message) {
+  debug(...args) {
+    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
     this.log("debug", message);
   }
 
