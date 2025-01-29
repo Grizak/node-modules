@@ -64,24 +64,53 @@ class LogManager {
   }
 
   info(...args) {
-    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
-    this.log("info", message);
-  }
+  const message = args.map(arg => {
+    if (arg instanceof Error) {
+      return `${arg.message} \n${arg.stack}`;
+    } else if (typeof arg === 'object') {
+      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); // Include all properties of error objects
+    }
+    return arg;
+  }).join(' ');
+  this.log("info", message);
+}
 
-  warn(...args) {
-    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
-    this.log("warn", message);
-  }
+warn(...args) {
+  const message = args.map(arg => {
+    if (arg instanceof Error) {
+      return `${arg.message} \n${arg.stack}`;
+    } else if (typeof arg === 'object') {
+      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
+    }
+    return arg;
+  }).join(' ');
+  this.log("warn", message);
+}
 
-  error(...args) {
-    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
-    this.log("error", message);
-  }
+error(...args) {
+  const message = args.map(arg => {
+    if (arg instanceof Error) {
+      return `${arg.message} \n${arg.stack}`;
+    } else if (typeof arg === 'object') {
+      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
+    }
+    return arg;
+  }).join(' ');
+  this.log("error", message);
+}
 
-  debug(...args) {
-    const message = args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)).join(' ');
-    this.log("debug", message);
-  }
+debug(...args) {
+  const message = args.map(arg => {
+    if (arg instanceof Error) {
+      return `${arg.message} \n${arg.stack}`;
+    } else if (typeof arg === 'object') {
+      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
+    }
+    return arg;
+  }).join(' ');
+  this.log("debug", message);
+}
+
 
   startServer() {
     const server = http.createServer((req, res) => {
