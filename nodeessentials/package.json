@@ -1,0 +1,30 @@
+{
+  "name": "@grizak/nodeessentials",
+  "version": "1.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [
+    "node.js",
+    "express",
+    "dotenv",
+    "essentials"
+  ],
+  "author": "grizak",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "nodeloggerg": "^2.3.0",
+    "socket.io": "^4.8.1"
+  },
+  "files": [
+    "index.js",
+    "package.json",
+    "express.js",
+    "README.md"
+  ]
+}

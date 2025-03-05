@@ -1,6 +1,6 @@
 {
   "name": "nodeloggerg",
-  "version": "2.1.0",
+  "version": "2.3.1",
   "description": "",
   "main": "app.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "files": [
     "app.js",
     "package.json",
-    ""
+    "LICENSE",
+    "README.md"
   ]
 }
