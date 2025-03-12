@@ -56,13 +56,22 @@ class LogManager {
     if (this.consoleOnly) {
       console.log(formattedMessage);
     } else if (this.fileOnly) {
-      fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+      this.printFile(formattedMessage);
     } else {
       console.log(formattedMessage);
-      fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+      this.printFile(formattedMessage);
     }
   }
 
+  printfile(message) {
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (fs.fileExistsSync(this.logFile) && fs.statSync(this.logFile).size >= MAX_FILE_SIZE) {
+      const archiveFile = this.logFile.replace('.txt', `_${Date.now()}.txt`);
+     fs.renameSync(this.logFile, archiveFile);
+    }
+    fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+  }
+  
   info(...args) {
   const message = args.map(arg => {
     if (arg instanceof Error) {
