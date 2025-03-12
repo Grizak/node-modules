@@ -36,6 +36,8 @@ class LogManager {
     this.serverPort = options.serverPort || 9001;
     this.startWebServer = options.startWebServer || false;
     this.logFormat = options.logFormat || ((level, timestamp, message) => `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
+    this.username = options.username || "admin";
+    this.password = options.password || "admin";
 
     // Validate that both consoleOnly and fileOnly are not set to true at the same time
     if (this.consoleOnly && this.fileOnly) {
@@ -133,6 +135,26 @@ debug(...args) {
 
   startServer() {
     const server = http.createServer((req, res) => {
+      const auth = req.headers['authorization'];
+
+        // Check if Authorization header is missing
+        if (!auth || auth.indexOf('Basic ') === -1) {
+            res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Secure Area"' });
+            res.end('Authorization required.');
+            return;
+        }
+
+        // Decode Base64 credentials
+        const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString('utf8');
+        const [user, pass] = credentials.split(':');
+
+        // Validate credentials
+        if (user !== this.username || pass !== this.password) {
+            res.writeHead(403, { "Content-Type": "text/plain" });
+            res.end("Access denied.");
+            return;
+        }
+      
       if (req.url === "/") {
         res.writeHead(200, { "Content-Type": "text/html" });
         const html = `
