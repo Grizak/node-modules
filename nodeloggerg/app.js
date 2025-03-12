@@ -155,10 +155,21 @@ debug(...args) {
         res.end(html);
       } else if (req.url === "/logs") {
         res.writeHead(200, { "Content-Type": "text/plain" });
-        const logContent = fs.existsSync(this.logFile)
-          ? fs.readFileSync(this.logFile, "utf-8")
-          : "No logs yet!";
-        res.end(logContent);
+    
+        if (fs.existsSync(this.logFile)) {
+            // Stream the log file to the response
+            const logStream = fs.createReadStream(this.logFile, { encoding: "utf8" });
+            logStream.pipe(res);
+    
+            // Handle any streaming errors gracefully
+            logStream.on("error", (err) => {
+                console.error("Error reading log file:", err);
+                res.end("Error reading log file");
+            });
+          } else {
+            // If the log file doesn't exist, respond with a placeholder message
+            res.end("No logs yet!");
+          }
       } else {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
