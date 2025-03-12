@@ -20,6 +20,13 @@ const http = require("http");
 class LogManager {
   /**
    * @param {LogManagerOptions} [options={}] - Options to configure the LogManager.
+   * 
+   * Example usage of logFormat:
+   * ```javascript
+   * const logger = new LogManager({
+   *   logFormat: (level, timestamp, message) => `${timestamp} - ${level.toUpperCase()}: ${message}`
+   * });
+   * ```
    */
   constructor(options = {}) {
     this.logFile = options.logFile || path.join(process.cwd(), "logs.txt");
