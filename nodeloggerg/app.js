@@ -10,6 +10,7 @@ const http = require("http");
  * @property {boolean} [fileOnly] - If true, logs will only be written to a file.
  * @property {number} [serverPort] - The port on which the log viewer server will run.
  * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
+ * @property {function(string, string, string): string} [logFormat] - A custom function to format log messages. It receives the log level, timestamp, and message as arguments and returns the formatted log string.
  */
 
 /**
@@ -27,6 +28,7 @@ class LogManager {
     this.fileOnly = options.fileOnly || false;
     this.serverPort = options.serverPort || 9001;
     this.startWebServer = options.startWebServer || false;
+    this.logFormat = options.logFormat || ((level, timestamp, message) => `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
 
     // Validate that both consoleOnly and fileOnly are not set to true at the same time
     if (this.consoleOnly && this.fileOnly) {
@@ -51,7 +53,7 @@ class LogManager {
     }
 
     const timestamp = this.formatTimestamp();
-    const formattedMessage = `[${timestamp}] [${level.toUpperCase()}]: ${message}`;
+    const formattedMessage = this.logFormat(level, timestamp, message);
 
     if (this.consoleOnly) {
       console.log(formattedMessage);
