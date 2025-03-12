@@ -14,6 +14,7 @@ const http = require("http");
  * @property {string} [username] - The username required for basic authentication when accessing the web server. Defaults to "admin".
  * @property {string} [password] - The password required for basic authentication when accessing the web server. Defaults to "admin".
  * @property {Array<string>} [allowedIPs] - An array of allowed IP addresses for accessing the web server. If not specified, defaults to only "127.0.0.1" (localhost).
+ * @property {boolean} [authEnabled] - A boolean value that tells the system whether to require auth when you try to access it. Defaults to "true".
  */
 
 /**
@@ -54,7 +55,8 @@ class LogManager {
     this.logFormat = options.logFormat || ((level, timestamp, message) => `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
     this.username = options.username || "admin";
     this.password = options.password || "admin";
-    this.allowedIPs = options.allowedIPs || ["127.0.0.1"]
+    this.allowedIPs = options.allowedIPs || ["127.0.0.1"];
+    this.authEnabled = options.authEnabled !== undefined ? options.authEnabled : true;
 
     // Validate that both consoleOnly and fileOnly are not set to true at the same time
     if (this.consoleOnly && this.fileOnly) {
@@ -156,6 +158,7 @@ debug(...args) {
 
   startServer() {
     const server = http.createServer((req, res) => {
+      if (this.authEnabled) {
       const clientIP = req.socket.remoteAddress;
 
       if (!this.allowedIPs.includes(clientIP)) {
@@ -183,6 +186,7 @@ debug(...args) {
             res.end("Access denied.");
             return;
         }
+      }
       
       if (req.url === "/") {
         res.writeHead(200, { "Content-Type": "text/html" });
