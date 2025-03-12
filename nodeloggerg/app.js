@@ -69,7 +69,7 @@ class LogManager {
       const archiveFile = this.logFile.replace('.txt', `_${Date.now()}.txt`);
      fs.renameSync(this.logFile, archiveFile);
     }
-    fs.appendFileSync(this.logFile, formattedMessage + "\n", "utf8");
+    fs.appendFileSync(this.logFile, message + "\n", "utf8");
   }
   
   info(...args) {
