@@ -55,12 +55,9 @@ class LogManager {
 
     if (this.consoleOnly) {
       console.log(formattedMessage);
-    } else if (this.fileOnly) {
-      this.printFile(formattedMessage);
     } else {
-      console.log(formattedMessage);
-      this.printFile(formattedMessage);
-    }
+      if (!this.fileOnly) console.log(formattedMessage);
+      this.printFile(formattedMessage)
   }
 
   printfile(message) {
