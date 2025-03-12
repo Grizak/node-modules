@@ -11,6 +11,9 @@ const http = require("http");
  * @property {number} [serverPort] - The port on which the log viewer server will run.
  * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
  * @property {function(string, string, string): string} [logFormat] - A custom function to format log messages. It receives the log level, timestamp, and message as arguments and returns the formatted log string.
+ * @property {string} [username] - The username required for basic authentication when accessing the web server. Defaults to "admin".
+ * @property {string} [password] - The password required for basic authentication when accessing the web server. Defaults to "admin".
+ * @property {Array<string>} [allowedIPs] - An array of allowed IP addresses for accessing the web server. If not specified, defaults to only "127.0.0.1" (localhost).
  */
 
 /**
@@ -19,15 +22,28 @@ const http = require("http");
  */
 class LogManager {
   /**
+   * Creates a new LogManager instance.
+   * 
    * @param {LogManagerOptions} [options={}] - Options to configure the LogManager.
    * 
-   * Example usage of logFormat:
+   * ### Example - Basic Authentication
    * ```javascript
    * const logger = new LogManager({
-   *   logFormat: (level, timestamp, message) => `${timestamp} - ${level.toUpperCase()}: ${message}`
+   *   startWebServer: true,
+   *   username: "secureUser", // Default "admin"
+   *   password: "strongPassword123" // Default "admin"
+   * });
+   * ```
+   * 
+   * ### Example - IP Whitelisting
+   * ```javascript
+   * const logger = new LogManager({
+   *   startWebServer: true,
+   *   allowedIPs: ["127.0.0.1", "192.168.1.100"]
    * });
    * ```
    */
+
   constructor(options = {}) {
     this.logFile = options.logFile || path.join(process.cwd(), "logs.txt");
     this.levels = options.levels || ["info", "warn", "error", "debug"];
