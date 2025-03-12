@@ -38,6 +38,7 @@ class LogManager {
     this.logFormat = options.logFormat || ((level, timestamp, message) => `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
     this.username = options.username || "admin";
     this.password = options.password || "admin";
+    this.allowedIPs = options.allowedIPs || ["127.0.0.1"]
 
     // Validate that both consoleOnly and fileOnly are not set to true at the same time
     if (this.consoleOnly && this.fileOnly) {
@@ -135,6 +136,14 @@ debug(...args) {
 
   startServer() {
     const server = http.createServer((req, res) => {
+      const clientIP = req.socket.remoteAddress;
+
+      if (!this.allowedIPs.includes(clientIP)) {
+          res.writeHead(403, { "Content-Type": "text/plain" });
+          res.end("Access denied: Your IP is not authorized.");
+          return;
+      }
+      
       const auth = req.headers['authorization'];
 
         // Check if Authorization header is missing
