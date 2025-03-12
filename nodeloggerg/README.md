@@ -107,4 +107,4 @@ This will start a web server on default port `9001`
 
 ### License
 
-This project is licensed under the MIT Licenae - see the `LICENSE` file for details
+This project is licensed under the MIT License - see the `LICENSE` file for details
