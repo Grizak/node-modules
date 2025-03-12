@@ -136,7 +136,7 @@ const logger = new LogManager({
 | `serverPort`     | `number`                        | `9001`                               | Port for the web server.                                    |
 | `logFormat`      | `function(level, timestamp, message): string` | Default format         | Customize the log message format.                           |
 | `username`       | `string`                        | `admin`                              | Username for web server authentication.                     |
-| `password`       | `string`                        | `password`                           | Password for web server authentication.                     |
+| `password`       | `string`                        | `admin`                              | Password for web server authentication.                     |
 | `allowedIPs`     | `Array<string>`                 | `["127.0.0.1"]`                      | Whitelist of allowed IPs for accessing the web server.      |
 | `authEnabled`    | `boolean`                       | `true`                               | Enable or disable basic authentication for the web server.  |
 
