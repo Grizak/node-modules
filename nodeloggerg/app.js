@@ -73,7 +73,7 @@ class LogManager {
     return `${date} ${formattedTime}`;
   }
 
-  log(level, message) {
+  async log(level, message) {
     if (!this.levels.includes(level)) {
       throw new Error(`Invalid log level: ${level}`);
     }
@@ -85,21 +85,25 @@ class LogManager {
       console.log(formattedMessage);
     } else {
       if (!this.fileOnly) console.log(formattedMessage);
-      this.printFile(formattedMessage)
+      await this.printFile(formattedMessage)
   }
 
-  printfile(message) {
+  async printFile(message) {
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
     try {
-      if (fs.existsSync(this.logFile) && fs.statSync(this.logFile).size >= MAX_FILE_SIZE) {
-          const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
-          fs.renameSync(this.logFile, archiveFile);
-      }
-      fs.appendFileSync(this.logFile, message + "\n", "utf8");
+        if (fs.existsSync(this.logFile)) {
+            const stats = await fs.promises.stat(this.logFile);
+            if (stats.size >= MAX_FILE_SIZE) {
+                const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
+                await fs.promises.rename(this.logFile, archiveFile);
+            }
+        }
+        await fs.promises.appendFile(this.logFile, message + "\n", "utf8");
     } catch (err) {
         console.error("Error while handling log file:", err);
     }
   }
+
   
   info(...args) {
   const message = args.map(arg => {
