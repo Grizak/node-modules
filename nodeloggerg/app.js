@@ -64,7 +64,7 @@ class LogManager {
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
     try {
       if (fs.existsSync(this.logFile) && fs.statSync(this.logFile).size >= MAX_FILE_SIZE) {
-          const archiveFile = this.logFile.replace('.txt', `_${Date.now()}.txt`);
+          const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
           fs.renameSync(this.logFile, archiveFile);
       }
       fs.appendFileSync(this.logFile, message + "\n", "utf8");
