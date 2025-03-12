@@ -62,11 +62,15 @@ class LogManager {
 
   printfile(message) {
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-    if (fs.existsSync(this.logFile) && fs.statSync(this.logFile).size >= MAX_FILE_SIZE) {
-      const archiveFile = this.logFile.replace('.txt', `_${Date.now()}.txt`);
-     fs.renameSync(this.logFile, archiveFile);
+    try {
+      if (fs.existsSync(this.logFile) && fs.statSync(this.logFile).size >= MAX_FILE_SIZE) {
+          const archiveFile = this.logFile.replace('.txt', `_${Date.now()}.txt`);
+          fs.renameSync(this.logFile, archiveFile);
+      }
+      fs.appendFileSync(this.logFile, message + "\n", "utf8");
+    } catch (err) {
+        console.error("Error while handling log file:", err);
     }
-    fs.appendFileSync(this.logFile, message + "\n", "utf8");
   }
   
   info(...args) {
