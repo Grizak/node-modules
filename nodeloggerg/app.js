@@ -93,18 +93,19 @@ class LogManager {
   async printFile(message) {
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
     try {
-        if (fs.existsSync(this.logFile)) {
-            const stats = await fs.promises.stat(this.logFile);
-            if (stats.size >= MAX_FILE_SIZE) {
-                const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
-                await fs.promises.rename(this.logFile, archiveFile);
-            }
+      if (fs.existsSync(this.logFile)) {
+        const stats = await fs.promises.stat(this.logFile);
+        if (stats.size >= MAX_FILE_SIZE) {
+          const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
+          await fs.promises.rename(this.logFile, archiveFile);
         }
-        await fs.promises.appendFile(this.logFile, message + "\n", "utf8");
+      }
+      await fs.promises.appendFile(this.logFile, message + "\n", "utf8");
     } catch (err) {
-        console.error("Error while handling log file:", err);
+      console.error("Error while handling log file:", err);
     }
   }
+
 
   
   info(...args) {
