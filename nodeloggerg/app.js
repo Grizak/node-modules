@@ -1,6 +1,10 @@
+// @ts-nocheck
+
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 /**
  * @typedef {Object} LogManagerOptions
@@ -24,9 +28,9 @@ const http = require("http");
 class LogManager {
   /**
    * Creates a new LogManager instance.
-   * 
+   *
    * @param {LogManagerOptions} [options={}] - Options to configure the LogManager.
-   * 
+   *
    * ### Example - Basic Authentication
    * ```javascript
    * const logger = new LogManager({
@@ -35,7 +39,7 @@ class LogManager {
    *   password: "strongPassword123" // Default "admin"
    * });
    * ```
-   * 
+   *
    * ### Example - IP Whitelisting
    * ```javascript
    * const logger = new LogManager({
@@ -52,11 +56,15 @@ class LogManager {
     this.fileOnly = options.fileOnly || false;
     this.serverPort = options.serverPort || 9001;
     this.startWebServer = options.startWebServer || false;
-    this.logFormat = options.logFormat || ((level, timestamp, message) => `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
+    this.logFormat =
+      options.logFormat ||
+      ((level, timestamp, message) =>
+        `[${timestamp}] [${level.toUpperCase()}]: ${message}`);
     this.username = options.username || "admin";
     this.password = options.password || "admin";
     this.allowedIPs = options.allowedIPs || ["127.0.0.1"];
-    this.authEnabled = options.authEnabled !== undefined ? options.authEnabled : true;
+    this.authEnabled =
+      options.authEnabled !== undefined ? options.authEnabled : true;
 
     // Validate that both consoleOnly and fileOnly are not set to true at the same time
     if (this.consoleOnly && this.fileOnly) {
@@ -87,16 +95,19 @@ class LogManager {
       console.log(formattedMessage);
     } else {
       if (!this.fileOnly) console.log(formattedMessage);
-      await this.printFile(formattedMessage)
+      await this.printFile(formattedMessage);
+    }
   }
 
   async printFile(message) {
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
     try {
       if (fs.existsSync(this.logFile)) {
         const stats = await fs.promises.stat(this.logFile);
         if (stats.size >= MAX_FILE_SIZE) {
-          const archiveFile = this.logFile.replace('.txt', `_${this.formatTimestamp().replace(/:/g, "-")}.txt`);
+          const archiveFile = this.logFile.replace(
+            ".txt",
+            `_${this.formatTimestamp().replace(/:/g, "-")}.txt`
+          );
           await fs.promises.rename(this.logFile, archiveFile);
         }
       }
@@ -106,89 +117,115 @@ class LogManager {
     }
   }
 
-
-  
   info(...args) {
-  const message = args.map(arg => {
-    if (arg instanceof Error) {
-      return `${arg.message} \n${arg.stack}`;
-    } else if (typeof arg === 'object') {
-      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); // Include all properties of error objects
-    }
-    return arg;
-  }).join(' ');
-  this.log("info", message);
-}
+    const message = args
+      .map((arg) => {
+        if (arg instanceof Error) {
+          return `${arg.message} \n${arg.stack}`;
+        } else if (typeof arg === "object") {
+          return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); // Include all properties of error objects
+        }
+        return arg;
+      })
+      .join(" ");
+    this.log("info", message);
+  }
 
-warn(...args) {
-  const message = args.map(arg => {
-    if (arg instanceof Error) {
-      return `${arg.message} \n${arg.stack}`;
-    } else if (typeof arg === 'object') {
-      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
-    }
-    return arg;
-  }).join(' ');
-  this.log("warn", message);
-}
+  warn(...args) {
+    const message = args
+      .map((arg) => {
+        if (arg instanceof Error) {
+          return `${arg.message} \n${arg.stack}`;
+        } else if (typeof arg === "object") {
+          return JSON.stringify(arg, Object.getOwnPropertyNames(arg));
+        }
+        return arg;
+      })
+      .join(" ");
+    this.log("warn", message);
+  }
 
-error(...args) {
-  const message = args.map(arg => {
-    if (arg instanceof Error) {
-      return `${arg.message} \n${arg.stack}`;
-    } else if (typeof arg === 'object') {
-      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
-    }
-    return arg;
-  }).join(' ');
-  this.log("error", message);
-}
+  error(...args) {
+    const message = args
+      .map((arg) => {
+        if (arg instanceof Error) {
+          return `${arg.message} \n${arg.stack}`;
+        } else if (typeof arg === "object") {
+          return JSON.stringify(arg, Object.getOwnPropertyNames(arg));
+        }
+        return arg;
+      })
+      .join(" ");
+    this.log("error", message);
+  }
 
-debug(...args) {
-  const message = args.map(arg => {
-    if (arg instanceof Error) {
-      return `${arg.message} \n${arg.stack}`;
-    } else if (typeof arg === 'object') {
-      return JSON.stringify(arg, Object.getOwnPropertyNames(arg)); 
-    }
-    return arg;
-  }).join(' ');
-  this.log("debug", message);
-}
-
+  debug(...args) {
+    const message = args
+      .map((arg) => {
+        if (arg instanceof Error) {
+          return `${arg.message} \n${arg.stack}`;
+        } else if (typeof arg === "object") {
+          return JSON.stringify(arg, Object.getOwnPropertyNames(arg));
+        }
+        return arg;
+      })
+      .join(" ");
+    this.log("debug", message);
+  }
 
   startServer() {
     const server = http.createServer((req, res) => {
-      if (this.authEnabled) {
-      const clientIP = req.socket.remoteAddress;
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'"
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Frame-Options", "DENY");
+      res.setHeader("X-XSS-Protection", "1; mode=block");
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
 
-      if (!this.allowedIPs.includes(clientIP)) {
+      res.removeHeader("X-Powered-By");
+
+      if (this.authEnabled) {
+        const clientIP = req.socket.remoteAddress;
+
+        if (!this.allowedIPs.includes(clientIP)) {
           res.writeHead(403, { "Content-Type": "text/plain" });
           res.end("Access denied: Your IP is not authorized.");
           return;
-      }
-      
-      const auth = req.headers['authorization'];
+        }
+
+        const auth = req.headers["authorization"];
 
         // Check if Authorization header is missing
-        if (!auth || auth.indexOf('Basic ') === -1) {
-            res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Secure Area"' });
-            res.end('Authorization required.');
-            return;
+        if (!auth || auth.indexOf("Basic ") === -1) {
+          res.writeHead(401, {
+            "WWW-Authenticate": 'Basic realm="Secure Area"',
+          });
+          res.end("Authorization required.");
+          return;
         }
 
         // Decode Base64 credentials
-        const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString('utf8');
-        const [user, pass] = credentials.split(':');
+        const credentials = Buffer.from(auth.split(" ")[1], "base64").toString(
+          "utf8"
+        );
+        const [user, pass] = credentials.split(":");
 
         // Validate credentials
         if (user !== this.username || pass !== this.password) {
-            res.writeHead(403, { "Content-Type": "text/plain" });
-            res.end("Access denied.");
-            return;
+          res.writeHead(403, { "Content-Type": "text/plain" });
+          res.end("Access denied.");
+          return;
         }
       }
-      
+
       if (req.url === "/") {
         res.writeHead(200, { "Content-Type": "text/html" });
         const html = `
@@ -220,21 +257,23 @@ debug(...args) {
         res.end(html);
       } else if (req.url === "/logs") {
         res.writeHead(200, { "Content-Type": "text/plain" });
-    
+
         if (fs.existsSync(this.logFile)) {
-            // Stream the log file to the response
-            const logStream = fs.createReadStream(this.logFile, { encoding: "utf8" });
-            logStream.pipe(res);
-    
-            // Handle any streaming errors gracefully
-            logStream.on("error", (err) => {
-                console.error("Error reading log file:", err);
-                res.end("Error reading log file");
-            });
-          } else {
-            // If the log file doesn't exist, respond with a placeholder message
-            res.end("No logs yet!");
-          }
+          // Stream the log file to the response
+          const logStream = fs.createReadStream(this.logFile, {
+            encoding: "utf8",
+          });
+          logStream.pipe(res);
+
+          // Handle any streaming errors gracefully
+          logStream.on("error", (err) => {
+            console.error("Error reading log file:", err);
+            res.end("Error reading log file");
+          });
+        } else {
+          // If the log file doesn't exist, respond with a placeholder message
+          res.end("No logs yet!");
+        }
       } else {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
