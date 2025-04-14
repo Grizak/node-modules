@@ -1,7 +1,8 @@
-const logManager = require("./app");
-
-const logger = new logManager({
+const logger = require("./app")({
   startWebServer: true,
+  enableCharts: true,
+  enableMetrics: true,
+  allowedIPs: ["::1"],
 });
 
 logger.info("Server running");

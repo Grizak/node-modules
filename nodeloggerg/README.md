@@ -67,7 +67,8 @@ Define your own format for log messages using the `logFormat` option:
 
 ```javascript
 const logger = new LogManager({
-  logFormat: (level, timestamp, message) => `${timestamp} | ${level.toUpperCase()} > ${message}`
+  logFormat: (level, timestamp, message) =>
+    `${timestamp} | ${level.toUpperCase()} > ${message}`,
 });
 
 logger.info("Server started");
@@ -126,19 +127,19 @@ const logger = new LogManager({
 
 ### Configuration Options
 
-| Option           | Type                            | Default                              | Description                                                 |
-| -----------------| --------------------------------|--------------------------------------|-------------------------------------------------------------|
-| `logFile`        | `string`                        | `logs.txt`                           | The path where the log file will be written.                |
-| `levels`         | `Array<string>`                 | `["info", "warn", "error", "debug"]` | The log levels to include.                                  |
-| `consoleOnly`    | `boolean`                       | `false`                              | Logs are printed only in the console.                       |
-| `fileOnly`       | `boolean`                       | `false`                              | Logs are written only to the log file.                      |
-| `startWebServer` | `boolean`                       | `false`                              | Starts the web-based log viewer.                            |
-| `serverPort`     | `number`                        | `9001`                               | Port for the web server.                                    |
-| `logFormat`      | `function(level, timestamp, message): string` | Default format         | Customize the log message format.                           |
-| `username`       | `string`                        | `admin`                              | Username for web server authentication.                     |
-| `password`       | `string`                        | `admin`                              | Password for web server authentication.                     |
-| `allowedIPs`     | `Array<string>`                 | `["127.0.0.1"]`                      | Whitelist of allowed IPs for accessing the web server.      |
-| `authEnabled`    | `boolean`                       | `true`                               | Enable or disable basic authentication for the web server.  |
+| Option           | Type                                          | Default                              | Description                                                |
+| ---------------- | --------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- |
+| `logFile`        | `string`                                      | `logs.txt`                           | The path where the log file will be written.               |
+| `levels`         | `Array<string>`                               | `["info", "warn", "error", "debug"]` | The log levels to include.                                 |
+| `consoleOnly`    | `boolean`                                     | `false`                              | Logs are printed only in the console.                      |
+| `fileOnly`       | `boolean`                                     | `false`                              | Logs are written only to the log file.                     |
+| `startWebServer` | `boolean`                                     | `false`                              | Starts the web-based log viewer.                           |
+| `serverPort`     | `number`                                      | `9001`                               | Port for the web server.                                   |
+| `logFormat`      | `function(level, timestamp, message): string` | Default format                       | Customize the log message format.                          |
+| `username`       | `string`                                      | `admin`                              | Username for web server authentication.                    |
+| `password`       | `string`                                      | `admin`                              | Password for web server authentication.                    |
+| `allowedIPs`     | `Array<string>`                               | `["127.0.0.1", "::1"]`               | Whitelist of allowed IPs for accessing the web server.     |
+| `authEnabled`    | `boolean`                                     | `true`                               | Enable or disable basic authentication for the web server. |
 
 ## License
 

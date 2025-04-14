@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enhanced Log Viewer</title>
+    <% if (config.enableCharts) { %>
+    <script
+      nonce="<%= nonce %>"
+      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
+    ></script>
+    <% } %>
+    <style nonce="<%= nonce %>">
+      :root {
+        --bg-color: #f8f9fa;
+        --text-color: #212529;
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #17a2b8;
+        --border-color: #dee2e6;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        line-height: 1.5;
+        color: var(--text-color);
+        background-color: var(--bg-color);
+        padding: 2rem;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+      }
+
+      .filters {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      label {
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: var(--secondary-color);
+      }
+
+      select,
+      input,
+      button {
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        border: 1px solid var(--border-color);
+        font-size: 1rem;
+      }
+
+      button {
+        background-color: var(--primary-color);
+        color: white;
+        cursor: pointer;
+        border: none;
+        padding: 0.5rem 1rem;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: #0069d9;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .tab {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        border-bottom: none;
+        border-radius: 0.25rem 0.25rem 0 0;
+        background-color: #f1f3f5;
+      }
+
+      .tab.active {
+        background-color: white;
+        font-weight: bold;
+        border-bottom: 1px solid white;
+        margin-bottom: -1px;
+      }
+
+      .tab-content {
+        display: none;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 0 0.5rem 0.5rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-top: none;
+        min-height: 400px;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: #f1f3f5;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        font-family: Monaco, Consolas, "Andale Mono", monospace;
+        font-size: 0.9rem;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .logs {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: #f1f3f5;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        font-family: Monaco, Consolas, "Andale Mono", monospace;
+        font-size: 0.9rem;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .log-level-info {
+        color: var(--info-color);
+      }
+
+      .log-level-warn {
+        color: var(--warning-color);
+      }
+
+      .log-level-error {
+        color: var(--danger-color);
+      }
+
+      .log-level-debug {
+        color: var(--secondary-color);
+      }
+
+      .files-list {
+        list-style: none;
+      }
+
+      .files-list li {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .files-list li:last-child {
+        border-bottom: none;
+      }
+
+      .export-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .chart-container {
+        height: 400px;
+        margin-bottom: 2rem;
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .metric-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border-color);
+        padding: 1rem;
+        text-align: center;
+      }
+
+      .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Enhanced Log Viewer</h1>
+        <div>
+          <p>Server time: <span id="server-time"></span></p>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="logs">Logs</div>
+        <div class="tab" data-tab="files">Files</div>
+        <% if (config.enableMetrics) { %>
+        <div class="tab" data-tab="metrics">Metrics</div>
+        <% } %>
+      </div>
+
+      <div id="logs-tab" class="tab-content active">
+        <div class="filters">
+          <div class="filter-group">
+            <label for="level-filter">Level:</label>
+            <select id="level-filter">
+              <option value="">All Levels</option>
+              <% config.levels.forEach(l => { %>
+              <option value="<%= l %>">
+                <%= l.charAt(0).toUpperCase() + l.slice(1) %>
+              </option>
+              <% }) %>
+            </select>
+          </div>
+
+          <% if (config.enableSearch) { %>
+          <div class="filter-group">
+            <label for="search-filter">Search:</label>
+            <input
+              type="text"
+              id="search-filter"
+              placeholder="Search logs..."
+            />
+          </div>
+          <% } %>
+
+          <div class="filter-group">
+            <label for="start-date">From:</label>
+            <input type="datetime-local" id="start-date" />
+          </div>
+
+          <div class="filter-group">
+            <label for="end-date">To:</label>
+            <input type="datetime-local" id="end-date" />
+          </div>
+
+          <div class="filter-group">
+            <label>&nbsp;</label>
+            <button id="apply-filters">Apply Filters</button>
+          </div>
+        </div>
+
+        <div id="logs" class="logs">Loading logs...</div>
+
+        <div class="export-buttons">
+          <button id="export-json">Export as JSON</button>
+          <button id="export-csv">Export as CSV</button>
+        </div>
+      </div>
+
+      <div id="files-tab" class="tab-content">
+        <h2>Log Files</h2>
+        <ul id="files-list" class="files-list">
+          <li>Loading files...</li>
+        </ul>
+      </div>
+
+      <% if (config.enableMetrics) { %>
+      <div id="metrics-tab" class="tab-content">
+        <h2>Logging Metrics</h2>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <h3>Total Logs</h3>
+            <div id="total-logs" class="metric-value">0</div>
+          </div>
+
+          <div class="metric-card">
+            <h3>Errors Per Minute</h3>
+            <div id="errors-per-minute" class="metric-value">0</div>
+          </div>
+
+          <div class="metric-card">
+            <h3>Logs Today</h3>
+            <div id="logs-today" class="metric-value">0</div>
+          </div>
+        </div>
+
+        <% if (config.enableCharts) { %>
+        <h3>Log Distribution</h3>
+        <div class="chart-container">
+          <canvas id="logs-by-level-chart"></canvas>
+        </div>
+
+        <h3>Logs Over Time</h3>
+        <div class="chart-container">
+          <canvas id="logs-over-time-chart"></canvas>
+        </div>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+
+    <script nonce="<%= nonce %>">
+      // Tabs functionality
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+          tab.classList.add('active');
+          document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+        });
+      });
+
+      // Server time
+      function updateServerTime() {
+        const now = new Date();
+        document.getElementById('server-time').textContent = now.toLocaleString();
+      }
+      setInterval(updateServerTime, 1000);
+      updateServerTime();
+
+      // Fetch logs with filters
+      async function fetchLogs() {
+        const level = document.getElementById('level-filter').value;
+        const searchEl = document.getElementById('search-filter');
+        const search = searchEl ? searchEl.value : '';
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let url = '/logs?format=text';
+        if (level) url += `&level=${encodeURIComponent(level)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch logs');
+
+          const data = await response.text();
+          const logsElement = document.getElementById('logs');
+
+          if (data.trim() === '') {
+            logsElement.textContent = 'No logs found matching your criteria.';
+            return;
+          }
+
+          // Apply syntax highlighting
+          logsElement.innerHTML = '';
+          data.split('\n').forEach(line => {
+            if (!line.trim()) return;
+
+            const logLine = document.createElement('div');
+
+            // Add class based on log level
+            if (line.includes('[INFO]')) logLine.classList.add('log-level-info');
+            else if (line.includes('[WARN]')) logLine.classList.add('log-level-warn');
+            else if (line.includes('[ERROR]')) logLine.classList.add('log-level-error');
+            else if (line.includes('[DEBUG]')) logLine.classList.add('log-level-debug');
+
+            logLine.textContent = line;
+            logsElement.appendChild(logLine);
+          });
+        } catch (err) {
+          console.error('Error fetching logs:', err);
+          document.getElementById('logs').textContent = 'Error loading logs: ' + err.message;
+        }
+      }
+
+      // Apply filters button
+      document.getElementById('apply-filters').addEventListener('click', fetchLogs);
+
+      // Export buttons
+      document.getElementById('export-json').addEventListener('click', async () => {
+        const level = document.getElementById('level-filter').value;
+        const searchEl = document.getElementById('search-filter');
+        const search = searchEl ? searchEl.value : '';
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let url = '/logs?format=json';
+        if (level) url += `&level=${encodeURIComponent(level)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch logs');
+
+          const data = await response.json();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `logs_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Error exporting JSON:', err);
+          alert('Error exporting logs: ' + err.message);
+        }
+      });
+
+      document.getElementById('export-csv').addEventListener('click', async () => {
+        const level = document.getElementById('level-filter').value;
+        const searchEl = document.getElementById('search-filter');
+        const search = searchEl ? searchEl.value : '';
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let url = '/logs?format=csv';
+        if (level) url += `&level=${encodeURIComponent(level)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch logs');
+
+          const data = await response.text();
+          const blob = new Blob([data], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `logs_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Error exporting CSV:', err);
+          alert('Error exporting logs: ' + err.message);
+        }
+      });
+
+      // Fetch log files
+      async function fetchLogFiles() {
+        try {
+          const response = await fetch('/files');
+          if (!response.ok) throw new Error('Failed to fetch log files');
+
+          const files = await response.json();
+          const filesList = document.getElementById('files-list');
+
+          if (files.length === 0) {
+            filesList.innerHTML = '<li>No log files found.</li>';
+            return;
+          }
+
+          filesList.innerHTML = '';
+          files.forEach(file => {
+            const li = document.createElement('li');
+
+            const fileInfo = document.createElement('div');
+            fileInfo.innerHTML = `
+              <strong>${file.name}</strong>
+              <div>Size: ${formatFileSize(file.size)}</div>
+              <div>Created: ${new Date(file.created).toLocaleString()}</div>
+            `;
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.textContent = 'Download';
+            downloadBtn.addEventListener('click', () => {
+              window.location.href = `/download/${encodeURIComponent(file.name)}`;
+            });
+
+            li.appendChild(fileInfo);
+            li.appendChild(downloadBtn);
+            filesList.appendChild(li);
+          });
+        } catch (err) {
+          console.error('Error fetching log files:', err);
+          document.getElementById('files-list').innerHTML = '<li>Error loading files: ' + err.message + '</li>';
+        }
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        else return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+      }
+
+      <% if (config.enableMetrics) { %>
+      // Metrics functionality
+      async function fetchMetrics() {
+        try {
+          const response = await fetch('/metrics');
+          if (!response.ok) throw new Error('Failed to fetch metrics');
+
+          const metricsData = await response.json();
+
+          // Update metric cards
+          document.getElementById('total-logs').textContent = metricsData.totalLogs;
+          document.getElementById('errors-per-minute').textContent = metricsData.errorsPerMinute;
+
+          // Calculate logs today
+          const today = new Date().setHours(0, 0, 0, 0);
+          let logsToday = 0;
+
+          metricsData.logsPerMinute.forEach(entry => {
+            const entryDate = new Date(entry.timestamp).setHours(0, 0, 0, 0);
+            if (entryDate === today) {
+              logsToday += entry.count;
+            }
+          });
+
+          document.getElementById('logs-today').textContent = logsToday;
+
+          <% if (config.enableCharts) { %>
+          // Update charts
+          updateLevelChart(metricsData.logsByLevel);
+          updateTimeChart(metricsData.logsPerMinute);
+          <% } %>
+        } catch (err) {
+          console.error('Error fetching metrics:', err);
+        }
+      }
+      <% } %>
+
+      <% if (config.enableCharts && config.enableMetrics) { %>
+      // Charts
+      let levelChart = null;
+      let timeChart = null;
+
+      function updateLevelChart(logsByLevel) {
+        const ctx = document.getElementById('logs-by-level-chart').getContext('2d');
+
+        const labels = Object.keys(logsByLevel).map(level => level.toUpperCase());
+        const data = Object.values(logsByLevel);
+
+        if (levelChart) {
+          levelChart.data.labels = labels;
+          levelChart.data.datasets[0].data = data;
+          levelChart.update();
+        } else {
+          levelChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Logs by Level',
+                data: data,
+                backgroundColor: [
+                  '#17a2b8', // info - cyan
+                  '#ffc107', // warn - yellow
+                  '#dc3545', // error - red
+                  '#6c757d'  // debug - gray
+                ],
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: 'Logs by Level'
+                }
+              }
+            }
+          });
+        }
+      }
+
+      function updateTimeChart(logsPerMinute) {
+        const ctx = document.getElementById('logs-over-time-chart').getContext('2d');
+
+        const labels = logsPerMinute.map(entry => {
+          const date = new Date(entry.timestamp);
+          return date.toLocaleTimeString();
+        });
+
+        const data = logsPerMinute.map(entry => entry.count);
+
+        if (timeChart) {
+          timeChart.data.labels = labels;
+          timeChart.data.datasets[0].data = data;
+          timeChart.update();
+        } else {
+          timeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Logs Over Time',
+                data: data,
+                fill: false,
+                borderColor: '#007bff',
+                tension: 0.1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true
+                }
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Logs Per Minute'
+                }
+              }
+            }
+          });
+        }
+      }
+      <% } %>
+
+      // Initial fetch
+      fetchLogs();
+
+      // Add event listener for Files tab
+      document.querySelector('.tab[data-tab="files"]').addEventListener('click', fetchLogFiles);
+
+      <% if (config.enableMetrics) { %>
+      // Add event listener for Metrics tab
+      document.querySelector('.tab[data-tab="metrics"]').addEventListener('click', fetchMetrics);
+
+      // Periodically update metrics if tab is active
+      setInterval(() => {
+        if (document.querySelector('.tab[data-tab="metrics"]').classList.contains('active')) {
+          fetchMetrics();
+        }
+      }, 5000);
+      <% } %>
+
+      // Auto-refresh logs every 5 seconds if the logs tab is active
+      setInterval(() => {
+        if (document.querySelector('.tab[data-tab="logs"]').classList.contains('active')) {
+          fetchLogs();
+        }
+      }, 5000);
+    </script>
+  </body>
+</html>
