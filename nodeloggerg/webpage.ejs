@@ -350,6 +350,27 @@
         });
       });
 
+      function checkBirthday(query) {
+        // Try different formats
+        const formats = [
+          query,                                     // Original format
+          query.replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$2-$1"), // Convert DD/MM/YYYY to YYYY-MM-DD
+          query.replace(/(\d+)[-.\/](\d+)[-.\/](\d+)/, "$3-$2-$1")  // Handle various separators
+        ];
+
+        for (const format of formats) {
+          const date = new Date(format);
+          if (!isNaN(date.getTime()) &&
+              date.getDate() === 29 &&
+              date.getMonth() === 0 &&
+              date.getFullYear() === 2011) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
       // Server time
       function updateServerTime() {
         const now = new Date();
@@ -365,6 +386,16 @@
         const search = searchEl ? searchEl.value : '';
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
+        const logsElement = document.getElementById('logs');
+
+        if (logsElement) {
+          logsElement.textContent = 'Loading logs...';
+        }
+
+        if (search && checkBirthday(search)) {
+          logsElement.textContent = "Made by Isak Grönlund in Sweden"
+          return;
+        }
 
         let url = '/logs?format=text';
         if (level) url += `&level=${encodeURIComponent(level)}`;
@@ -377,7 +408,6 @@
           if (!response.ok) throw new Error('Failed to fetch logs');
 
           const data = await response.text();
-          const logsElement = document.getElementById('logs');
 
           if (data.trim() === '') {
             logsElement.textContent = 'No logs found matching your criteria.';
@@ -682,6 +712,13 @@
           fetchLogs();
         }
       }, 5000);
+
+      document.querySelector("#search-filter").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          fetchLogs();
+        }
+      });
     </script>
   </body>
 </html>

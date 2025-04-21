@@ -72,8 +72,6 @@ function createLogManager(options = {}) {
       options.enableCharts !== undefined ? options.enableCharts : true,
   };
 
-  console.log("Log Manager Configuration:", config);
-
   // Validate configuration
   if (config.consoleOnly && config.fileOnly) {
     throw new Error("Cannot have both consoleOnly and fileOnly set to true.");
@@ -609,6 +607,10 @@ function createLogManager(options = {}) {
     // Events
     on: (event, callback) => {
       logEmitter.on(event, callback);
+
+      return {
+        remove: logEmitter.off(event, callback),
+      };
     },
     off: (event, callback) => {
       logEmitter.off(event, callback);

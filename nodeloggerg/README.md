@@ -1,146 +1,202 @@
-# NodeLoggerg
+# Nodeloggerg
 
-A simple logging manager for Node.js that helps manage logging for your application. It writes logs to both the console and a log file. You can configure log levels, log formatting, and even set up a web server to view logs in real-time.
+A powerful, flexible, and feature-rich logging system for Node.js applications with advanced filtering, web interface, and metrics tracking capabilities.
 
 ## Features
 
-- **Log Levels**: Supports multiple log levels (`info`, `warn`, `error`, `debug` or custom ones you specify).
-- **Timestamped Logs**: Automatically adds timestamps to your log messages.
-- **Customizable Log Format**: Define your own log format to fit your needs.
-- **File Output**: Logs are written to a file (default location is `logs.txt`), with optional log rotation.
-- **Console Output**: Logs are also output to the console (can be disabled).
-- **Web-Based Log Viewer**: View logs in real-time via a built-in web server, with optional security features.
-- **Authentication and IP Whitelisting**: Secure your log viewer with basic authentication or IP restrictions.
+- **Multi-level Logging**: Supports configurable log levels (info, warn, error, debug)
+- **Output Flexibility**: Write to console, file, or both
+- **Web Interface**: Built-in web server to view, search, and download logs
+- **Log Rotation**: Automatic log file rotation based on size limits
+- **Compression**: Compress rotated log files to save disk space
+- **Security**: IP filtering and basic authentication for the web interface
+- **Metrics**: Track and visualize logging statistics (optional)
+- **Email Alerts**: Send notifications for critical logs (configurable)
+- **Search & Filtering**: Filter logs by level, text search, and date ranges
+- **Export Options**: Export logs as JSON or CSV
+- **Event System**: Subscribe to log events programmatically
+- **Custom Formatting**: Define your own log message format
+- **Extensibility**: Create multiple logger instances with different configurations
 
 ## Installation
-
-You can install this package via npm:
 
 ```bash
 npm install nodeloggerg
 ```
 
-Or clone the repository and use it directly in the project:
-
-```bash
-git clone https://github.com/Grizak/node_modules.git
-mv node_modules/nodeloggerg nodeloggerg
-rm -rf node_modules
-cd nodeloggerg
-npm install
-```
-
-## Usage
-
-### Basic Example
+## Basic Usage
 
 ```javascript
-const LogManager = require("nodeloggerg"); // Or use the local path if you cloned the repo
+const createLogManager = require("nodeloggerg");
 
-// Create a new LogManager instance
-const logger = new LogManager();
+// Create a basic logger
+const logger = createLogManager();
 
-// Log messages with different levels
-logger.info("Server started");
-logger.warn("This is a warning");
-logger.error("An error occurred");
-logger.debug("Debugging information");
+// Log at different levels
+logger.info("Application started");
+logger.debug("Debug information");
+logger.warn("Warning message");
+logger.error("An error occurred", new Error("Something went wrong"));
+
+// Create structured logs
+logger.info({ user: "john", action: "login", status: "success" });
 ```
 
-### Custom Log File Path
-
-You can specify a custom log file path and log levels when creating a log instance:
+## Configuration Options
 
 ```javascript
-const logger = new LogManager({
-  logFile: "path/to/custom-log-file.log", // Specify a custom log file path
-  levels: ["info", "warn", "error"], // Only log the specified levels
-});
+const logger = createLogManager({
+  // Log file path
+  logFile: "app-logs.txt",
 
-logger.info("Server started");
-logger.error("An error occurred");
-```
+  // Available log levels
+  levels: ["info", "warn", "error", "debug", "trace"],
 
-### Customize Log Format
+  // Output options
+  consoleOnly: false, // Log to console only
+  fileOnly: false, // Log to file only
 
-Define your own format for log messages using the `logFormat` option:
+  // Web interface options
+  serverPort: 9001,
+  startWebServer: true,
 
-```javascript
-const logger = new LogManager({
+  // Format logs
   logFormat: (level, timestamp, message) =>
-    `${timestamp} | ${level.toUpperCase()} > ${message}`,
-});
+    `[${timestamp}] [${level.toUpperCase()}]: ${message}`,
 
-logger.info("Server started");
-// Output: 2025-03-12 14:00:00 | INFO > Server started
+  // Security options
+  username: "admin",
+  password: "securepassword",
+  allowedIPs: ["127.0.0.1", "::1"],
+  authEnabled: true,
+
+  // Advanced options
+  compressOldLogs: true,
+  enableMetrics: true,
+
+  // Email alerts
+  emailAlerts: [
+    {
+      level: "error",
+      pattern: "Database connection",
+      smtp: {
+        host: "smtp.example.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: "alerts@example.com",
+          pass: "password",
+        },
+      },
+      from: "alerts@example.com",
+      to: "admin@example.com",
+      subject: "Critical Database Error",
+    },
+  ],
+
+  // Directory for log files
+  logDir: "./logs",
+
+  // Web interface features
+  enableSearch: true,
+  enableCharts: true,
+});
 ```
 
-### Log Rotation (Automatic)
+## Web Interface
 
-Logs are automatically rotated when the file size exceeds 5 MB. The old file is archived with a timestamp.
-
-### Output Options
-
-You can choose where the logs are written or printed:
+The built-in web interface provides a user-friendly way to view, filter, and download logs. To start the web server:
 
 ```javascript
-const logger1 = new LogManager({
-  consoleOnly: true, // Logs are only printed in the console
-});
-
-const logger2 = new LogManager({
-  fileOnly: true, // Logs are only written to the log file
-});
-
-const logger3 = new LogManager({
-  // Logs are printed in the console and written to the log file
-});
-```
-
-### Web-Based Log Viewer
-
-The module comes with a real-time log viewer accessible via a web browser:
-
-```javascript
-const logger = new LogManager({
-  startWebServer: true, // Enables the web server for logs
-});
-
-const loggerWithPort = new LogManager({
+// Start web server when creating the logger
+const logger = createLogManager({
   startWebServer: true,
-  serverPort: 9001, // Specify the server port
+  serverPort: 9001,
 });
+
+// Or start it later
+logger.startServer();
 ```
 
-### Securing the Web Server
+Once started, navigate to `http://localhost:9001` to access the log viewer interface.
 
-To secure the log viewer, use basic authentication or IP whitelisting:
+### Web Interface Features
+
+- View logs in real-time with auto-refresh
+- Filter logs by level, text search, and date range
+- Download log files in various formats (text, JSON, CSV)
+- View logging metrics and charts (when metrics are enabled)
+- Browse and download archived log files
+
+## Advanced Usage
+
+### Custom Logger
 
 ```javascript
-const logger = new LogManager({
-  startWebServer: true,
-  username: "secureUser", // Sets the username for basic authentication
-  password: "strongPassword123", // Sets the password for basic authentication
-  allowedIPs: ["127.0.0.1", "192.168.1.100"], // Restrict access to these IPs
+// Create a specialized logger for database operations
+const dbLogger = logger.createCustomLogger({
+  logFile: "database.log",
+  levels: ["info", "error"],
+  logFormat: (level, timestamp, message) => {
+    return `[DB][${timestamp}] ${level}: ${message}`;
+  },
+});
+
+dbLogger.info("Database connection established");
+```
+
+### Event Subscription
+
+```javascript
+// React to error logs
+logger.on("log", (logEntry) => {
+  if (logEntry.level === "error") {
+    // Perform additional actions for errors
+    notifyAdministrator(logEntry);
+  }
 });
 ```
 
-### Configuration Options
+### Log Filtering
 
-| Option           | Type                                          | Default                              | Description                                                |
-| ---------------- | --------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- |
-| `logFile`        | `string`                                      | `logs.txt`                           | The path where the log file will be written.               |
-| `levels`         | `Array<string>`                               | `["info", "warn", "error", "debug"]` | The log levels to include.                                 |
-| `consoleOnly`    | `boolean`                                     | `false`                              | Logs are printed only in the console.                      |
-| `fileOnly`       | `boolean`                                     | `false`                              | Logs are written only to the log file.                     |
-| `startWebServer` | `boolean`                                     | `false`                              | Starts the web-based log viewer.                           |
-| `serverPort`     | `number`                                      | `9001`                               | Port for the web server.                                   |
-| `logFormat`      | `function(level, timestamp, message): string` | Default format                       | Customize the log message format.                          |
-| `username`       | `string`                                      | `admin`                              | Username for web server authentication.                    |
-| `password`       | `string`                                      | `admin`                              | Password for web server authentication.                    |
-| `allowedIPs`     | `Array<string>`                               | `["127.0.0.1", "::1"]`               | Whitelist of allowed IPs for accessing the web server.     |
-| `authEnabled`    | `boolean`                                     | `true`                               | Enable or disable basic authentication for the web server. |
+```javascript
+// Get logs programmatically with filters
+const errorLogs = logger.filterLogs(
+  "error",
+  "database",
+  "2023-01-01",
+  "2023-01-31"
+);
+```
+
+### Export Logs
+
+```javascript
+// Export filtered logs as CSV
+const csvData = logger.exportLogsAsCsv(
+  logger.filterLogs("error", "database", "2023-01-01", "2023-01-31")
+);
+fs.writeFileSync("database-errors.csv", csvData);
+```
+
+## Web Template
+
+The module comes with a built-in web template (`webpage.ejs`) that provides a responsive, feature-rich interface for viewing logs. The template includes:
+
+- Tabbed interface (Logs, Files, Metrics)
+- Filtering and search capabilities
+- Log syntax highlighting
+- Real-time updates
+- Metrics visualization with charts
+- File download options
+
+## Requirements
+
+- Node.js 12.0.0 or higher
+- Dependencies:
+  - nodemailer (for email alerts)
+  - ejs (for web template rendering)
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+MIT
