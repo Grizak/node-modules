@@ -388,10 +388,6 @@
         const endDate = document.getElementById('end-date').value;
         const logsElement = document.getElementById('logs');
 
-        if (logsElement) {
-          logsElement.textContent = 'Loading logs...';
-        }
-
         if (search && checkBirthday(search)) {
           logsElement.textContent = "Made by Isak Grönlund in Sweden"
           return;

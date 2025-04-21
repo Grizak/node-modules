@@ -472,6 +472,7 @@ function createLogManager(options = {}) {
 
     server.listen(config.serverPort, () => {
       console.log(
+        "\x1b[36m%s\x1b[0m",
         `Log Viewer running at http://localhost:${config.serverPort}`
       );
     });
@@ -567,7 +568,7 @@ function createLogManager(options = {}) {
   }
 
   async function generateHtmlPage(nonce) {
-    return await ejs.renderFile("webpage.ejs", {
+    return await ejs.renderFile(path.join(__dirname, "webpage.ejs"), {
       nonce,
       config,
     });
