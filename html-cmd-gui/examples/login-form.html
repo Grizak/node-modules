@@ -1,0 +1,51 @@
+<!-- examples/login-form.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Terminal Login Form</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Terminal Login Form</h1>
+      <p>
+        Welcome to the HTML-CMD-GUI demo. Use Tab to navigate and Enter to click
+        buttons.
+      </p>
+
+      <div class="box">
+        <h2>Login</h2>
+        <p>Please enter your credentials below:</p>
+
+        <div>
+          <label for="username">Username:</label>
+          <input type="text" id="username" placeholder="Enter username" />
+        </div>
+
+        <div>
+          <label for="password">Password:</label>
+          <input type="password" id="password" placeholder="Enter password" />
+        </div>
+
+        <div>
+          <button id="loginBtn">Login</button>
+          <button id="cancelBtn">Cancel</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>Options</h2>
+        <select id="themeSelect">
+          <option value="light">Light Theme</option>
+          <option value="dark">Dark Theme</option>
+          <option value="blue">Blue Theme</option>
+        </select>
+
+        <ul>
+          <li>Press Tab to navigate</li>
+          <li>Press Enter to activate</li>
+          <li>Press Ctrl+C to exit</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>
