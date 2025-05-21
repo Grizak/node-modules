@@ -56,19 +56,25 @@ const logger = createLogManager({
   consoleOnly: false, // Log to console only
   fileOnly: false, // Log to file only
 
+
+
   // Web interface options
-  serverPort: 9001,
-  startWebServer: true,
+  serverOptions: {
+    serverPort: 9001,
+    startWebServer: true,
+
+    // Security options
+    allowedIPs: ["127.0.0.1", "::1"],
+    authEnabled: true,
+    auth: {
+      user: "admin",
+      pass: "securepassword",
+    }
+  }
 
   // Format logs
   logFormat: (level, timestamp, message) =>
     `[${timestamp}] [${level.toUpperCase()}]: ${message}`,
-
-  // Security options
-  username: "admin",
-  password: "securepassword",
-  allowedIPs: ["127.0.0.1", "::1"],
-  authEnabled: true,
 
   // Advanced options
   compressOldLogs: true,

@@ -21,7 +21,8 @@
   ],
   "dependencies": {
     "ejs": "^3.1.10",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "socket.io": "^4.8.1"
   },
   "type": "commonjs"
 }

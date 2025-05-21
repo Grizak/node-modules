@@ -15,25 +15,96 @@ const pipeline = util.promisify(stream.pipeline);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 /**
+ * SMTP Configuration options for Nodemailer
+ * @typedef {Object} SMTPConfig
+ *
+ * @property {string} host - The hostname or IP address of the SMTP server to connect to (e.g., 'smtp.gmail.com', 'smtp.office365.com')
+ * @property {number} [port=587] - The port to connect to (defaults to 587 if secure is false, 465 if secure is true)
+ * @property {boolean} [secure=false] - If true, the connection will use TLS when connecting. If false, TLS is used if server supports STARTTLS extension
+ *
+ * @property {Object} [auth] - Authentication credentials
+ * @property {string} [auth.user] - Username for authentication (usually the email address)
+ * @property {string} [auth.pass] - Password for authentication
+ * @property {string} [auth.type='login'] - Authentication type ('login', 'oauth2', etc.)
+ *
+ * @property {Object} [oauth2] - OAuth2 configuration (required if auth.type is 'oauth2')
+ * @property {string} [oauth2.user] - User email address
+ * @property {string} [oauth2.clientId] - OAuth Client ID
+ * @property {string} [oauth2.clientSecret] - OAuth Client Secret
+ * @property {string} [oauth2.refreshToken] - OAuth Refresh Token
+ * @property {string} [oauth2.accessToken] - OAuth Access Token
+ * @property {number} [oauth2.expires] - Access token expiration timestamp in milliseconds
+ *
+ * @property {boolean} [pool=false] - If true, creates a connection pool
+ * @property {number} [maxConnections=5] - Maximum number of connections to pool (defaults to 5)
+ * @property {number} [maxMessages] - Maximum number of messages to send using a single connection (defaults to 100)
+ *
+ * @property {number} [tls.rejectUnauthorized=true] - Reject self-signed or invalid TLS certificates
+ * @property {Object} [tls] - Additional TLS options (see Node.js TLS docs)
+ *
+ * @property {number} [connectionTimeout=60000] - Connection timeout in milliseconds (defaults to 60000)
+ * @property {number} [greetingTimeout=30000] - How long to wait for the greeting after connection (defaults to 30000)
+ * @property {number} [socketTimeout=60000] - How long to wait for socket operations (defaults to 60000)
+ *
+ * @property {string} [localAddress] - Local interface to bind to for network connections
+ * @property {string} [name] - Hostname to be used for identifying to the server
+ * @property {boolean} [ignoreTLS=false] - If true, does not try to use STARTTLS even if available
+ * @property {boolean} [requireTLS=false] - If true, forces the use of STARTTLS even if not advertised
+ * @property {boolean} [opportunisticTLS=true] - If true, uses STARTTLS when available
+ *
+ * @property {Object} [logger=false] - Logger instance (defaults to false)
+ * @property {boolean} [debug=false] - If true, outputs debug information to console
+ * @property {function} [transactionLog] - Function to be called with mail envelope and delivery info
+ *
+ * @property {Object} [proxy] - Proxy URL configuration object for making the connection through a proxy
+ * @property {string} [proxy.host] - Hostname of the proxy server
+ * @property {number} [proxy.port] - Port of the proxy server
+ * @property {string} [proxy.auth] - Proxy authentication as 'user:pass'
+ *
+ * @property {string} [dsn] - DSN parameters for requesting delivery status notification
+ * @property {boolean} [dsn.ret] - Return either the full message ('FULL') or only headers ('HDRS')
+ * @property {Object} [dkim] - DKIM signing options
+ */
+
+/**
+ * @typedef {Object} Auth
+ * @property {String} [user] - Username to log in
+ * @property {String} [pass] - Password to log in
+ */
+
+/**
+ * @typedef {Array<Object>} EmailAlerts
+ * @property {String} [level] - The level to look for when sending emails
+ * @property {SMTPConfig} [smpt] - Smtp config for nodemailer
+ * @property {String} [from] - Who to send the emails from
+ * @property {String} [to] - Whom to send the emails to
+ * @property {String} [subject] - Subject to include in the emails
+ */
+
+/**
+ * @typedef {Object} ServerConfig
+ * @property {boolean} [enableSearch] - Whether to enable search functionality in the web interface.
+ * @property {boolean} [enableCharts] - Whether to enable chart visualizations in the web interface.
+ * @property {Auth} [auth] - Auth for the web server
+ * @property {Array<string>} [allowedIPs] - An array of allowed IP addresses for accessing the web server.
+ * @property {boolean} [authEnabled] - Whether to require authentication when accessing the web server.
+ * @property {number} [serverPort] - The port on which the log viewer server will run.
+ * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
+ */
+
+/**
  * @typedef {Object} LogManagerOptions
  * @property {string} [logFile] - The path to the log file.
  * @property {Array<string>} [levels] - An array of log levels (e.g., "info", "warn", "error", "debug").
  * @property {boolean} [consoleOnly] - If true, logs will only appear in the console.
  * @property {boolean} [fileOnly] - If true, logs will only be written to a file.
- * @property {number} [serverPort] - The port on which the log viewer server will run.
- * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
  * @property {function(string, string, string): string} [logFormat] - A custom function to format log messages.
- * @property {string} [username] - The username for basic authentication when accessing the web server.
- * @property {string} [password] - The password for basic authentication when accessing the web server.
- * @property {Array<string>} [allowedIPs] - An array of allowed IP addresses for accessing the web server.
- * @property {boolean} [authEnabled] - Whether to require authentication when accessing the web server.
  * @property {boolean} [compressOldLogs] - Whether to compress old log files when rotating.
  * @property {boolean} [enableMetrics] - Whether to track logging metrics.
- * @property {Array<Object>} [emailAlerts] - Configuration for email alerts.
+ * @property {EmailAlerts} [emailAlerts] - Configuration for email alerts.
  * @property {Object} [dbConfig] - Database configuration for log persistence.
  * @property {string} [logDir] - Directory for storing multiple log files.
- * @property {boolean} [enableSearch] - Whether to enable search functionality in the web interface.
- * @property {boolean} [enableCharts] - Whether to enable chart visualizations in the web interface.
+ * @property {ServerConfig} [serverConfig] - Config for the web server
  */
 
 /**
@@ -49,16 +120,19 @@ function createLogManager(options = {}) {
     levels: options.levels || ["info", "warn", "error", "debug"],
     consoleOnly: options.consoleOnly || false,
     fileOnly: options.fileOnly || false,
-    serverPort: options.serverPort || 9001,
-    startWebServer: options.startWebServer || false,
+    serverPort: options.serverConfig.serverPort || 9001,
+    startWebServer: options.serverConfig.startWebServer || false,
     logFormat:
       options.logFormat ||
       ((level, timestamp, message) =>
         `[${timestamp}] [${level.toUpperCase()}]: ${message}`),
-    username: options.username || "admin",
-    password: options.password || "admin",
-    allowedIPs: options.allowedIPs || ["127.0.0.1", "::1"],
-    authEnabled: options.authEnabled !== undefined ? options.authEnabled : true,
+    username: options.serverConfig.auth.user || "admin",
+    password: options.serverConfig.auth.pass || "admin",
+    allowedIPs: options.serverConfig.allowedIPs || ["127.0.0.1", "::1"],
+    authEnabled:
+      options.serverConfig.authEnabled !== undefined
+        ? options.authEnabled
+        : true,
     compressOldLogs:
       options.compressOldLogs !== undefined ? options.compressOldLogs : true,
     enableMetrics:
@@ -67,9 +141,13 @@ function createLogManager(options = {}) {
     dbConfig: options.dbConfig || null,
     logDir: options.logDir || path.join(process.cwd(), "logs"),
     enableSearch:
-      options.enableSearch !== undefined ? options.enableSearch : true,
+      options.serverConfig.enableSearch !== undefined
+        ? options.enableSearch
+        : true,
     enableCharts:
-      options.enableCharts !== undefined ? options.enableCharts : true,
+      options.serverConfig.enableCharts !== undefined
+        ? options.enableCharts
+        : true,
   };
 
   // Validate configuration
