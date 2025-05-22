@@ -1349,7 +1349,7 @@ const csvData = logger.exportLogsAsCsv(errorLogs);</code></pre>
       // Add a service worker for PWA
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("sv.js").then(() => {
+          navigator.serviceWorker.register("sw.js").then(() => {
             console.log("Service worker registered successfully");
           });
         });
