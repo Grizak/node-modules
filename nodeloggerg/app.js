@@ -10,6 +10,7 @@ const EventEmitter = require("events");
 const os = require("os");
 const nodemailer = require("nodemailer");
 const ejs = require("ejs");
+const socketIo = require("socket.io");
 
 const pipeline = util.promisify(stream.pipeline);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -90,6 +91,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  * @property {boolean} [authEnabled] - Whether to require authentication when accessing the web server.
  * @property {number} [serverPort] - The port on which the log viewer server will run.
  * @property {boolean} [startWebServer] - If true, starts a web server to view logs.
+ * @property {boolean} [enableRealtime] - If true, enables real-time updates via Socket.IO.
  */
 
 /**
@@ -120,18 +122,22 @@ function createLogManager(options = {}) {
     levels: options.levels || ["info", "warn", "error", "debug"],
     consoleOnly: options.consoleOnly || false,
     fileOnly: options.fileOnly || false,
-    serverPort: options.serverConfig.serverPort || 9001,
-    startWebServer: options.serverConfig.startWebServer || false,
+    serverPort: options.serverConfig?.serverPort || 9001,
+    startWebServer: options.serverConfig?.startWebServer || false,
+    enableRealtime:
+      options.serverConfig?.enableRealtime !== undefined
+        ? options.serverConfig.enableRealtime
+        : true,
     logFormat:
       options.logFormat ||
       ((level, timestamp, message) =>
         `[${timestamp}] [${level.toUpperCase()}]: ${message}`),
-    username: options.serverConfig.auth.user || "admin",
-    password: options.serverConfig.auth.pass || "admin",
-    allowedIPs: options.serverConfig.allowedIPs || ["127.0.0.1", "::1"],
+    username: options.serverConfig?.auth?.user || "admin",
+    password: options.serverConfig?.auth?.pass || "admin",
+    allowedIPs: options.serverConfig?.allowedIPs || ["127.0.0.1", "::1"],
     authEnabled:
-      options.serverConfig.authEnabled !== undefined
-        ? options.authEnabled
+      options.serverConfig?.authEnabled !== undefined
+        ? options.serverConfig.authEnabled
         : true,
     compressOldLogs:
       options.compressOldLogs !== undefined ? options.compressOldLogs : true,
@@ -141,12 +147,12 @@ function createLogManager(options = {}) {
     dbConfig: options.dbConfig || null,
     logDir: options.logDir || path.join(process.cwd(), "logs"),
     enableSearch:
-      options.serverConfig.enableSearch !== undefined
-        ? options.enableSearch
+      options.serverConfig?.enableSearch !== undefined
+        ? options.serverConfig.enableSearch
         : true,
     enableCharts:
-      options.serverConfig.enableCharts !== undefined
-        ? options.enableCharts
+      options.serverConfig?.enableCharts !== undefined
+        ? options.serverConfig.enableCharts
         : true,
   };
 
@@ -167,6 +173,9 @@ function createLogManager(options = {}) {
   const logEmitter = new EventEmitter();
   const logBuffer = [];
   const MAX_BUFFER_SIZE = 1000;
+
+  // Socket.IO instance
+  let io = null;
 
   // Create logs directory if needed
   if (!config.consoleOnly && !fs.existsSync(config.logDir)) {
@@ -217,7 +226,7 @@ function createLogManager(options = {}) {
         (!alertConfig.pattern || message.includes(alertConfig.pattern))
       ) {
         try {
-          const transporter = nodemailer.createTransport(alertConfig.smtp);
+          const transporter = nodemailer.createTransporter(alertConfig.smtp);
           await transporter.sendMail({
             from: alertConfig.from,
             to: alertConfig.to,
@@ -267,6 +276,30 @@ function createLogManager(options = {}) {
     }
   }
 
+  // ====== Socket.IO Functions ======
+  function notifyClientsNewLog(logEntry) {
+    if (io && config.enableRealtime) {
+      io.emit("newLog", {
+        level: logEntry.level,
+        timestamp: logEntry.timestamp,
+        message: logEntry.message,
+        formattedMessage: logEntry.formattedMessage,
+      });
+    }
+  }
+
+  function notifyClientsMetricsUpdate() {
+    if (io && config.enableRealtime && config.enableMetrics) {
+      io.emit("metricsUpdate", metrics);
+    }
+  }
+
+  function notifyClientsLogRotation() {
+    if (io && config.enableRealtime) {
+      io.emit("logRotation");
+    }
+  }
+
   // ====== Core Logging Function ======
   async function log(level, ...args) {
     if (!config.levels.includes(level)) {
@@ -287,16 +320,18 @@ function createLogManager(options = {}) {
     const timestamp = formatTimestamp();
     const formattedMessage = config.logFormat(level, timestamp, message);
 
-    // Update metrics
-    updateMetrics(level);
-
-    // Buffer the log for in-memory access
-    logBuffer.push({
+    const logEntry = {
       level,
       timestamp,
       message,
       formattedMessage,
-    });
+    };
+
+    // Update metrics
+    updateMetrics(level);
+
+    // Buffer the log for in-memory access
+    logBuffer.push(logEntry);
 
     // Limit buffer size
     if (logBuffer.length > MAX_BUFFER_SIZE) {
@@ -304,7 +339,10 @@ function createLogManager(options = {}) {
     }
 
     // Emit log event for subscribers
-    logEmitter.emit("log", { level, timestamp, message, formattedMessage });
+    logEmitter.emit("log", logEntry);
+
+    // Notify connected clients via Socket.IO
+    notifyClientsNewLog(logEntry);
 
     // Check for email alerts
     await checkEmailAlerts(level, message);
@@ -354,6 +392,9 @@ function createLogManager(options = {}) {
             if (config.compressOldLogs) {
               await compressLogFile(archiveFile);
             }
+
+            // Notify clients about log rotation
+            notifyClientsLogRotation();
           }
         }
 
@@ -363,8 +404,13 @@ function createLogManager(options = {}) {
       }
     }
 
+    // Notify clients about metrics update if needed
+    if (config.enableMetrics) {
+      notifyClientsMetricsUpdate();
+    }
+
     // Return the log entry for chaining
-    return { level, timestamp, message, formattedMessage };
+    return logEntry;
   }
 
   // ====== Web Server Setup ======
@@ -373,7 +419,7 @@ function createLogManager(options = {}) {
   async function startServer() {
     if (server) return; // Avoid starting multiple servers
 
-    server = await http.createServer(async (req, res) => {
+    server = http.createServer(async (req, res) => {
       // Security headers
       const nonce = require("crypto")
         .randomBytes(require("crypto").randomInt(16, 48))
@@ -382,7 +428,7 @@ function createLogManager(options = {}) {
 
       res.setHeader(
         "Content-Security-Policy",
-        `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://cdnjs.cloudflare.com; style-src 'self' 'nonce-${nonce}' https://cdnjs.cloudflare.com; img-src 'self' data:;`
+        `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://cdnjs.cloudflare.com; style-src 'self' 'nonce-${nonce}' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' ws: wss:;`
       );
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "DENY");
@@ -548,11 +594,68 @@ function createLogManager(options = {}) {
       }
     });
 
+    // Initialize Socket.IO if real-time is enabled
+    if (config.enableRealtime) {
+      io = socketIo(server, {
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"],
+        },
+        transports: ["websocket", "polling"],
+      });
+
+      io.on("connection", (socket) => {
+        console.log("\x1b[36m%s\x1b[0m", `Client connected: ${socket.id}`);
+
+        // Send current metrics on connection if available
+        if (config.enableMetrics) {
+          socket.emit("metricsUpdate", metrics);
+        }
+
+        // Send recent logs from buffer
+        if (logBuffer.length > 0) {
+          socket.emit("initialLogs", logBuffer.slice(-50)); // Send last 50 logs
+        }
+
+        socket.on("disconnect", () => {
+          console.log("\x1b[36m%s\x1b[0m", `Client disconnected: ${socket.id}`);
+        });
+
+        socket.on("requestLogs", (filters) => {
+          try {
+            const filteredLogs = filterLogs(
+              filters.level || "",
+              filters.search || "",
+              filters.startDate || "",
+              filters.endDate || ""
+            );
+            socket.emit("logsData", filteredLogs);
+          } catch (err) {
+            socket.emit("error", {
+              message: "Error filtering logs",
+              error: err.message,
+            });
+          }
+        });
+
+        socket.on("requestMetrics", () => {
+          if (config.enableMetrics) {
+            socket.emit("metricsUpdate", metrics);
+          } else {
+            socket.emit("error", { message: "Metrics not enabled" });
+          }
+        });
+      });
+    }
+
     server.listen(config.serverPort, () => {
       console.log(
         "\x1b[36m%s\x1b[0m",
         `Log Viewer running at http://localhost:${config.serverPort}`
       );
+      if (config.enableRealtime) {
+        console.log("\x1b[36m%s\x1b[0m", `Socket.IO real-time updates enabled`);
+      }
     });
   }
 
@@ -693,6 +796,20 @@ function createLogManager(options = {}) {
     },
     off: (event, callback) => {
       logEmitter.off(event, callback);
+    },
+
+    // Socket.IO methods
+    getConnectedClients: () => {
+      if (io) {
+        return io.engine.clientsCount;
+      }
+      return 0;
+    },
+
+    broadcastToClients: (event, data) => {
+      if (io && config.enableRealtime) {
+        io.emit(event, data);
+      }
     },
 
     // Utility methods

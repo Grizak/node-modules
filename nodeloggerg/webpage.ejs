@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enhanced Log Viewer</title>
-    <% if (config.enableCharts) { %>
+    <% if (config.enableRealtime) { %>
+    <script nonce="<%= nonce %>" src="/socket.io/socket.io.js"></script>
+    <% } %> <% if (config.enableCharts) { %>
     <script
       nonce="<%= nonce %>"
       src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
@@ -55,6 +57,23 @@
       h3 {
         color: var(--primary-color);
         margin-bottom: 1rem;
+      }
+
+      .connection-status {
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+        font-weight: bold;
+      }
+
+      .connection-status.connected {
+        background-color: var(--success-color);
+        color: white;
+      }
+
+      .connection-status.disconnected {
+        background-color: var(--danger-color);
+        color: white;
       }
 
       .filters {
@@ -180,6 +199,29 @@
         color: var(--secondary-color);
       }
 
+      .log-entry {
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+
+      .log-entry.new-log {
+        background-color: #fff3cd;
+        animation: fadeIn 0.5s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          background-color: #fff3cd;
+        }
+        to {
+          background-color: transparent;
+        }
+      }
+
       .files-list {
         list-style: none;
       }
@@ -227,6 +269,21 @@
         font-weight: bold;
         color: var(--primary-color);
       }
+
+      .realtime-controls {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+
+      .auto-scroll-toggle {
+        background-color: var(--secondary-color);
+      }
+
+      .auto-scroll-toggle.enabled {
+        background-color: var(--success-color);
+      }
     </style>
   </head>
   <body>
@@ -234,6 +291,11 @@
       <header>
         <h1>Enhanced Log Viewer</h1>
         <div>
+          <% if (config.enableRealtime) { %>
+          <div id="connection-status" class="connection-status disconnected">
+            Connecting...
+          </div>
+          <% } %>
           <p>Server time: <span id="server-time"></span></p>
         </div>
       </header>
@@ -247,6 +309,16 @@
       </div>
 
       <div id="logs-tab" class="tab-content active">
+        <% if (config.enableRealtime) { %>
+        <div class="realtime-controls">
+          <button id="auto-scroll-toggle" class="auto-scroll-toggle enabled">
+            Auto-scroll: ON
+          </button>
+          <button id="clear-logs">Clear Display</button>
+          <button id="pause-realtime">Pause Real-time</button>
+        </div>
+        <% } %>
+
         <div class="filters">
           <div class="filter-group">
             <label for="level-filter">Level:</label>
@@ -339,6 +411,66 @@
     </div>
 
     <script nonce="<%= nonce %>">
+      // Global variables
+      let socket = null;
+      let autoScroll = true;
+      let realtimePaused = false;
+      let logBuffer = [];
+
+      <% if (config.enableRealtime) { %>
+      // Initialize Socket.IO
+      function initializeSocket() {
+        socket = io();
+
+        socket.on('connect', () => {
+          console.log('Connected to server');
+          updateConnectionStatus('connected');
+        });
+
+        socket.on('disconnect', () => {
+          console.log('Disconnected from server');
+          updateConnectionStatus('disconnected');
+        });
+
+        socket.on('newLog', (logEntry) => {
+          if (!realtimePaused) {
+            addLogToDisplay(logEntry, true);
+          }
+        });
+
+        socket.on('initialLogs', (logs) => {
+          logBuffer = logs;
+          displayLogs(logs);
+        });
+
+        socket.on('logsData', (logs) => {
+          displayLogs(logs);
+        });
+
+        socket.on('metricsUpdate', (metrics) => {
+          updateMetrics(metrics);
+        });
+
+        socket.on('logRotation', () => {
+          // Show notification that logs were rotated
+          console.log('Log rotation occurred');
+          fetchLogs(); // Refresh the display
+        });
+
+        socket.on('error', (error) => {
+          console.error('Socket error:', error);
+        });
+      }
+
+      function updateConnectionStatus(status) {
+        const statusEl = document.getElementById('connection-status');
+        if (statusEl) {
+          statusEl.className = `connection-status ${status}`;
+          statusEl.textContent = status === 'connected' ? 'Connected' : 'Disconnected';
+        }
+      }
+      <% } %>
+
       // Tabs functionality
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -379,7 +511,57 @@
       setInterval(updateServerTime, 1000);
       updateServerTime();
 
-      // Fetch logs with filters
+      // Add a single log entry to the display
+      function addLogToDisplay(logEntry, isNew = false) {
+        const logsElement = document.getElementById('logs');
+        const logDiv = document.createElement('div');
+        logDiv.className = 'log-entry';
+
+        if (isNew) {
+          logDiv.classList.add('new-log');
+          // Remove the highlight after animation
+          setTimeout(() => {
+            logDiv.classList.remove('new-log');
+          }, 1000);
+        }
+
+        // Add class based on log level
+        if (logEntry.level === 'info') logDiv.classList.add('log-level-info');
+        else if (logEntry.level === 'warn') logDiv.classList.add('log-level-warn');
+        else if (logEntry.level === 'error') logDiv.classList.add('log-level-error');
+        else if (logEntry.level === 'debug') logDiv.classList.add('log-level-debug');
+
+        logDiv.textContent = logEntry.formattedMessage;
+        logsElement.appendChild(logDiv);
+
+        // Auto-scroll to bottom if enabled
+        if (autoScroll) {
+          logsElement.scrollTop = logsElement.scrollHeight;
+        }
+
+        // Keep only last 1000 log entries in display for performance
+        const logEntries = logsElement.getElementsByClassName('log-entry');
+        if (logEntries.length > 1000) {
+          logsElement.removeChild(logEntries[0]);
+        }
+      }
+
+      // Display multiple logs
+      function displayLogs(logs) {
+        const logsElement = document.getElementById('logs');
+        logsElement.innerHTML = '';
+
+        if (!logs || logs.length === 0) {
+          logsElement.textContent = 'No logs found matching your criteria.';
+          return;
+        }
+
+        logs.forEach(logEntry => {
+          addLogToDisplay(logEntry, false);
+        });
+      }
+
+      // Fetch logs with filters (fallback for non-realtime or when filtering)
       async function fetchLogs() {
         const level = document.getElementById('level-filter').value;
         const searchEl = document.getElementById('search-filter');
@@ -393,6 +575,21 @@
           return;
         }
 
+        <% if (config.enableRealtime) { %>
+        // If socket is available and filters are applied, request filtered logs
+        if (socket && socket.connected && (level || search || startDate || endDate)) {
+          socket.emit('requestLogs', { level, search, startDate, endDate });
+          return;
+        }
+
+        // If no filters and socket is connected, just display buffer
+        if (socket && socket.connected && !level && !search && !startDate && !endDate) {
+          displayLogs(logBuffer);
+          return;
+        }
+        <% } %>
+
+        // Fallback to HTTP request
         let url = '/logs?format=text';
         if (level) url += `&level=${encodeURIComponent(level)}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -410,27 +607,44 @@
             return;
           }
 
-          // Apply syntax highlighting
-          logsElement.innerHTML = '';
-          data.split('\n').forEach(line => {
-            if (!line.trim()) return;
+          // Parse and display logs
+          const logs = data.split('\n').filter(line => line.trim()).map(line => {
+            const timestampMatch = line.match(/\[(.*?)\]/);
+            const levelMatch = line.match(/\[(INFO|WARN|ERROR|DEBUG)\]/i);
 
-            const logLine = document.createElement('div');
-
-            // Add class based on log level
-            if (line.includes('[INFO]')) logLine.classList.add('log-level-info');
-            else if (line.includes('[WARN]')) logLine.classList.add('log-level-warn');
-            else if (line.includes('[ERROR]')) logLine.classList.add('log-level-error');
-            else if (line.includes('[DEBUG]')) logLine.classList.add('log-level-debug');
-
-            logLine.textContent = line;
-            logsElement.appendChild(logLine);
+            return {
+              formattedMessage: line,
+              timestamp: timestampMatch ? timestampMatch[1] : '',
+              level: levelMatch ? levelMatch[1].toLowerCase() : '',
+              message: line
+            };
           });
+
+          displayLogs(logs);
         } catch (err) {
           console.error('Error fetching logs:', err);
-          document.getElementById('logs').textContent = 'Error loading logs: ' + err.message;
+          logsElement.textContent = 'Error loading logs: ' + err.message;
         }
       }
+
+      <% if (config.enableRealtime) { %>
+      // Real-time controls
+      document.getElementById('auto-scroll-toggle').addEventListener('click', (e) => {
+        autoScroll = !autoScroll;
+        e.target.textContent = autoScroll ? 'Auto-scroll: ON' : 'Auto-scroll: OFF';
+        e.target.className = autoScroll ? 'auto-scroll-toggle enabled' : 'auto-scroll-toggle';
+      });
+
+      document.getElementById('clear-logs').addEventListener('click', () => {
+        document.getElementById('logs').innerHTML = '';
+      });
+
+      document.getElementById('pause-realtime').addEventListener('click', (e) => {
+        realtimePaused = !realtimePaused;
+        e.target.textContent = realtimePaused ? 'Resume Real-time' : 'Pause Real-time';
+        e.target.style.backgroundColor = realtimePaused ? 'var(--warning-color)' : 'var(--primary-color)';
+      });
+      <% } %>
 
       // Apply filters button
       document.getElementById('apply-filters').addEventListener('click', fetchLogs);
@@ -553,35 +767,45 @@
 
       <% if (config.enableMetrics) { %>
       // Metrics functionality
+      function updateMetrics(metricsData) {
+        // Update metric cards
+        document.getElementById('total-logs').textContent = metricsData.totalLogs;
+        document.getElementById('errors-per-minute').textContent = metricsData.errorsPerMinute;
+
+        // Calculate logs today
+        const today = new Date().setHours(0, 0, 0, 0);
+        let logsToday = 0;
+
+        metricsData.logsPerMinute.forEach(entry => {
+          const entryDate = new Date(entry.timestamp).setHours(0, 0, 0, 0);
+          if (entryDate === today) {
+            logsToday += entry.count;
+          }
+        });
+
+        document.getElementById('logs-today').textContent = logsToday;
+
+        <% if (config.enableCharts) { %>
+        // Update charts
+        updateLevelChart(metricsData.logsByLevel);
+        updateTimeChart(metricsData.logsPerMinute);
+        <% } %>
+      }
+
       async function fetchMetrics() {
+        <% if (config.enableRealtime) { %>
+        if (socket && socket.connected) {
+          socket.emit('requestMetrics');
+          return;
+        }
+        <% } %>
+
         try {
           const response = await fetch('/metrics');
           if (!response.ok) throw new Error('Failed to fetch metrics');
 
           const metricsData = await response.json();
-
-          // Update metric cards
-          document.getElementById('total-logs').textContent = metricsData.totalLogs;
-          document.getElementById('errors-per-minute').textContent = metricsData.errorsPerMinute;
-
-          // Calculate logs today
-          const today = new Date().setHours(0, 0, 0, 0);
-          let logsToday = 0;
-
-          metricsData.logsPerMinute.forEach(entry => {
-            const entryDate = new Date(entry.timestamp).setHours(0, 0, 0, 0);
-            if (entryDate === today) {
-              logsToday += entry.count;
-            }
-          });
-
-          document.getElementById('logs-today').textContent = logsToday;
-
-          <% if (config.enableCharts) { %>
-          // Update charts
-          updateLevelChart(metricsData.logsByLevel);
-          updateTimeChart(metricsData.logsPerMinute);
-          <% } %>
+          updateMetrics(metricsData);
         } catch (err) {
           console.error('Error fetching metrics:', err);
         }
@@ -684,16 +908,37 @@
       }
       <% } %>
 
-      // Initial fetch
-      fetchLogs();
-
       // Add event listener for Files tab
       document.querySelector('.tab[data-tab="files"]').addEventListener('click', fetchLogFiles);
 
       <% if (config.enableMetrics) { %>
       // Add event listener for Metrics tab
       document.querySelector('.tab[data-tab="metrics"]').addEventListener('click', fetchMetrics);
+      <% } %>
 
+      // Enter key support for search
+      document.querySelector("#search-filter")?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          fetchLogs();
+        }
+      });
+
+      // Initialize everything
+      <% if (config.enableRealtime) { %>
+      initializeSocket();
+      <% } else { %>
+      // Initial fetch for non-realtime mode
+      fetchLogs();
+
+      // Auto-refresh logs every 5 seconds if not using realtime
+      setInterval(() => {
+        if (document.querySelector('.tab[data-tab="logs"]').classList.contains('active')) {
+          fetchLogs();
+        }
+      }, 5000);
+
+      <% if (config.enableMetrics) { %>
       // Periodically update metrics if tab is active
       setInterval(() => {
         if (document.querySelector('.tab[data-tab="metrics"]').classList.contains('active')) {
@@ -701,20 +946,7 @@
         }
       }, 5000);
       <% } %>
-
-      // Auto-refresh logs every 5 seconds if the logs tab is active
-      setInterval(() => {
-        if (document.querySelector('.tab[data-tab="logs"]').classList.contains('active')) {
-          fetchLogs();
-        }
-      }, 5000);
-
-      document.querySelector("#search-filter").addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          fetchLogs();
-        }
-      });
+      <% } %>
     </script>
   </body>
 </html>
