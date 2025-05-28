@@ -110,10 +110,67 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  */
 
 /**
+ * Log manager instance with extensive logging capabilities and web interface
+ * @typedef {Object} LogManager
+ * 
+ * @property {function(string, ...any): Promise<LogEntry>} log - Core logging function that accepts a level and any number of arguments
+ * 
+ * @property {function(...any): Promise<LogEntry>} info - Log an info message
+ * @property {function(...any): Promise<LogEntry>} warn - Log a warning message  
+ * @property {function(...any): Promise<LogEntry>} error - Log an error message
+ * @property {function(...any): Promise<LogEntry>} debug - Log a debug message
+ * 
+ * @property {function(): Promise<void>} startServer - Start the web server for viewing logs
+ * 
+ * @property {function(): LogManagerOptions} getConfig - Get the current configuration object
+ * @property {function(Partial<LogManagerOptions>): LogManagerOptions} updateConfig - Update configuration with new values and return merged config
+ * 
+ * @property {function(): Object|null} getMetrics - Get logging metrics (returns null if metrics disabled)
+ * @property {Object} getMetrics.return - Metrics object when enabled
+ * @property {number} getMetrics.return.totalLogs - Total number of logs recorded
+ * @property {Object<string, number>} getMetrics.return.logsByLevel - Count of logs by level
+ * @property {Array<{timestamp: string, count: number}>} getMetrics.return.logsPerMinute - Logs per minute history
+ * @property {number} getMetrics.return.errorsPerMinute - Number of errors in current minute
+ * @property {number} getMetrics.return.lastMinuteTimestamp - Timestamp of last minute boundary
+ * 
+ * @property {function(string, function): {remove: function}} on - Subscribe to log events, returns object with remove method
+ * @property {function(string, function): void} off - Unsubscribe from log events
+ * 
+ * @property {function(): number} getConnectedClients - Get number of connected Socket.IO clients
+ * @property {function(string, any): void} broadcastToClients - Broadcast data to all connected clients via Socket.IO
+ * 
+ * @property {function(string, string, string, string): Array<LogEntry>} filterLogs - Filter logs by level, search term, start date, and end date
+ * @property {function(Array<LogEntry>): string} exportLogsAsCsv - Export log entries as CSV string
+ * 
+ * @property {function(string): Promise<string|null>} compressLogFile - Compress a log file using gzip
+ * @property {function(): Array<LogFileInfo>} getLogFiles - Get information about all log files in the log directory
+ * 
+ * @property {function(Partial<LogManagerOptions>): LogManager} createCustomLogger - Create a new log manager instance with custom configuration
+ */
+
+/**
+ * Individual log entry object
+ * @typedef {Object} LogEntry
+ * @property {string} level - The log level (info, warn, error, debug, etc.)
+ * @property {string} timestamp - ISO timestamp when log was created
+ * @property {string} message - The raw log message
+ * @property {string} formattedMessage - The formatted log message as it appears in files/console
+ */
+
+/**
+ * Log file information object
+ * @typedef {Object} LogFileInfo  
+ * @property {string} name - The filename
+ * @property {string} path - Full path to the file
+ * @property {number} size - File size in bytes
+ * @property {Date} created - File creation date
+ */
+
+/**
  * Create a log manager instance with extensive logging capabilities
  *
  * @param {LogManagerOptions} [options={}] - Options to configure the LogManager.
- * @returns {Object} The log manager interface with logging methods and utilities
+ * @returns {LogManager} The log manager interface with logging methods and utilities
  */
 function createLogManager(options = {}) {
   // ====== Configuration ======
