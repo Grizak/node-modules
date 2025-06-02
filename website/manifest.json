@@ -3,7 +3,7 @@
   "short_name": "Nodeloggerg",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f2f2f2",
+  "background_color": "#f2f2f200",
   "theme_color": "#1affff",
   "icons": [
     {
