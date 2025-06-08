@@ -70,6 +70,11 @@ const logger = createLogManager({
       user: "admin",
       pass: "securepassword",
     }
+
+    // Web interface feature options
+    enableSearch: true,
+    enableCharts: true,
+    enableRealtime: true,
   }
 
   // Format logs
@@ -101,11 +106,7 @@ const logger = createLogManager({
   ],
 
   // Directory for log files
-  logDir: "./logs",
-
-  // Web interface features
-  enableSearch: true,
-  enableCharts: true,
+  logDir: "./logs"
 });
 ```
 
@@ -202,6 +203,7 @@ The module comes with a built-in web template (`webpage.ejs`) that provides a re
 - Dependencies:
   - nodemailer (for email alerts)
   - ejs (for web template rendering)
+  - socket.io (for realtime comunication between server and webinterface)
 
 ## License
 

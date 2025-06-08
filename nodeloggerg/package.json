@@ -21,8 +21,10 @@
   ],
   "dependencies": {
     "ejs": "^3.1.10",
+    "mongoose": "^8.15.1",
     "nodemailer": "^6.10.1",
     "socket.io": "^4.8.1"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "types": "nodeloggerg.d.ts"
 }

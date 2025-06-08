@@ -11,6 +11,7 @@ const os = require("os");
 const nodemailer = require("nodemailer");
 const ejs = require("ejs");
 const socketIo = require("socket.io");
+const mongoose = require("mongoose");
 
 const pipeline = util.promisify(stream.pipeline);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -95,6 +96,14 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  */
 
 /**
+ * @typedef {Object} dbConfig
+ * @property {String} [type] - The databse type. Accepted types is "mongodb" and "sql"
+ * @property {String} [mongodb.collectionName] - What the database collection should be called
+ * @property {mongoose.SchemaDefinition} [mongodb.schema] - The database schema (For mongodb)
+ * @property {String} [mongodb.uri] - The uri for mongodb to connect to
+ */
+
+/**
  * @typedef {Object} LogManagerOptions
  * @property {string} [logFile] - The path to the log file.
  * @property {Array<string>} [levels] - An array of log levels (e.g., "info", "warn", "error", "debug").
@@ -104,27 +113,28 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  * @property {boolean} [compressOldLogs] - Whether to compress old log files when rotating.
  * @property {boolean} [enableMetrics] - Whether to track logging metrics.
  * @property {EmailAlerts} [emailAlerts] - Configuration for email alerts.
- * @property {Object} [dbConfig] - Database configuration for log persistence.
+ * @property {dbConfig} [dbConfig] - Database configuration for log persistence.
  * @property {string} [logDir] - Directory for storing multiple log files.
  * @property {ServerConfig} [serverConfig] - Config for the web server
+ * @property {string} [logLevel] - The default log level that the `log` function uses
  */
 
 /**
  * Log manager instance with extensive logging capabilities and web interface
  * @typedef {Object} LogManager
- * 
+ *
  * @property {function(string, ...any): Promise<LogEntry>} log - Core logging function that accepts a level and any number of arguments
- * 
+ *
  * @property {function(...any): Promise<LogEntry>} info - Log an info message
- * @property {function(...any): Promise<LogEntry>} warn - Log a warning message  
+ * @property {function(...any): Promise<LogEntry>} warn - Log a warning message
  * @property {function(...any): Promise<LogEntry>} error - Log an error message
  * @property {function(...any): Promise<LogEntry>} debug - Log a debug message
- * 
+ *
  * @property {function(): Promise<void>} startServer - Start the web server for viewing logs
- * 
+ *
  * @property {function(): LogManagerOptions} getConfig - Get the current configuration object
  * @property {function(Partial<LogManagerOptions>): LogManagerOptions} updateConfig - Update configuration with new values and return merged config
- * 
+ *
  * @property {function(): Object|null} getMetrics - Get logging metrics (returns null if metrics disabled)
  * @property {Object} getMetrics.return - Metrics object when enabled
  * @property {number} getMetrics.return.totalLogs - Total number of logs recorded
@@ -132,20 +142,22 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  * @property {Array<{timestamp: string, count: number}>} getMetrics.return.logsPerMinute - Logs per minute history
  * @property {number} getMetrics.return.errorsPerMinute - Number of errors in current minute
  * @property {number} getMetrics.return.lastMinuteTimestamp - Timestamp of last minute boundary
- * 
+ *
  * @property {function(string, function): {remove: function}} on - Subscribe to log events, returns object with remove method
  * @property {function(string, function): void} off - Unsubscribe from log events
- * 
+ *
  * @property {function(): number} getConnectedClients - Get number of connected Socket.IO clients
  * @property {function(string, any): void} broadcastToClients - Broadcast data to all connected clients via Socket.IO
- * 
+ *
  * @property {function(string, string, string, string): Array<LogEntry>} filterLogs - Filter logs by level, search term, start date, and end date
  * @property {function(Array<LogEntry>): string} exportLogsAsCsv - Export log entries as CSV string
- * 
+ *
  * @property {function(string): Promise<string|null>} compressLogFile - Compress a log file using gzip
  * @property {function(): Array<LogFileInfo>} getLogFiles - Get information about all log files in the log directory
- * 
+ *
  * @property {function(Partial<LogManagerOptions>): LogManager} createCustomLogger - Create a new log manager instance with custom configuration
+ * @property {function(): String[]} regeneragteLogMethods - Regenerate the log methods
+ * @property {function(): String[]} getAvailableLevels - Get all available log levels to use
  */
 
 /**
@@ -159,7 +171,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 /**
  * Log file information object
- * @typedef {Object} LogFileInfo  
+ * @typedef {Object} LogFileInfo
  * @property {string} name - The filename
  * @property {string} path - Full path to the file
  * @property {number} size - File size in bytes
@@ -211,11 +223,68 @@ function createLogManager(options = {}) {
       options.serverConfig?.enableCharts !== undefined
         ? options.serverConfig.enableCharts
         : true,
+    defaultLevel:
+      options.logLevel ||
+      (options.levels || ["info", "warn", "error", "debug"])[0],
   };
 
   // Validate configuration
   if (config.consoleOnly && config.fileOnly) {
     throw new Error("Cannot have both consoleOnly and fileOnly set to true.");
+  }
+
+  let loggerConnection = null;
+  let LogModel = null;
+  const defaultLogSchema = {
+    level: { type: String, required: true, index: true },
+    timestamp: { type: Date, required: true, index: true },
+    message: { type: String, required: true },
+    formattedMessage: { type: String },
+    createdAt: { type: Date, default: Date.now, expires: "30d" }, // TTL for cleanup
+  };
+
+  async function initializeDatabase() {
+    if (config.dbConfig?.type === "mongodb" && config.dbConfig.mongodb?.uri) {
+      try {
+        // Create a separate connection instance - doesn't affect global mongoose
+        loggerConnection = mongoose.createConnection(
+          config.dbConfig.mongodb.uri,
+          {
+            maxPoolSize: 10,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+          }
+        );
+
+        console.log("Logger MongoDB connected successfully");
+
+        // Create model on the specific connection
+        if (
+          config.dbConfig.mongodb.schema &&
+          config.dbConfig.mongodb.collectionName
+        ) {
+          const logSchema = new mongoose.Schema(config.dbConfig.mongodb.schema);
+          LogModel = loggerConnection.model(
+            config.dbConfig.mongodb.collectionName,
+            logSchema
+          );
+        } else {
+          LogModel = loggerConnection.model("Logs", defaultLogSchema);
+        }
+
+        // Setup connection event handlers
+        loggerConnection.on("error", (err) => {
+          console.error("Logger MongoDB connection error:", err);
+        });
+
+        loggerConnection.on("disconnected", () => {
+          console.warn("Logger MongoDB disconnected");
+        });
+      } catch (err) {
+        console.error("Logger MongoDB connection failed:", err);
+        loggerConnection = null;
+      }
+    }
   }
 
   // ====== Internal State ======
@@ -233,6 +302,65 @@ function createLogManager(options = {}) {
 
   // Socket.IO instance
   let io = null;
+
+  let logManagerInstance = {}; // The current public interface
+  let currentLogMethods = {}; // Current log methods cache
+
+  function generateLogMethods() {
+    const newLogMethods = {};
+
+    config.levels.forEach((level) => {
+      newLogMethods[level] = (...args) => log(level, ...args);
+    });
+
+    return newLogMethods;
+  }
+
+  function updateLogMethods() {
+    // Clear old methods from the instance
+    Object.keys(currentLogMethods).forEach((level) => {
+      delete logManagerInstance[level];
+    });
+
+    // Generate new methods
+    currentLogMethods = generateLogMethods();
+
+    // Add new methods to the instance
+    Object.assign(logManagerInstance, currentLogMethods);
+
+    console.log(
+      `Log methods updated. Available levels: ${config.levels.join(", ")}`
+    );
+  }
+
+  // Config update function
+  function updateConfig(newConfig) {
+    const oldLevels = [...config.levels]; // Store old levels for comparison
+
+    // Update the config
+    Object.assign(config, newConfig);
+
+    // Check if levels have changed
+    const levelsChanged =
+      oldLevels.length !== config.levels.length ||
+      !oldLevels.every((level, index) => level === config.levels[index]);
+
+    if (levelsChanged) {
+      console.log(
+        `Log levels changed from [${oldLevels.join(
+          ", "
+        )}] to [${config.levels.join(", ")}]`
+      );
+      updateLogMethods();
+
+      // Emit a config change event for subscribers
+      logEmitter.emit("configChanged", {
+        oldLevels,
+        newLevels: [...config.levels],
+        fullConfig: { ...config },
+      });
+    }
+  }
 
   // Create logs directory if needed
   if (!config.consoleOnly && !fs.existsSync(config.logDir)) {
@@ -298,19 +426,30 @@ function createLogManager(options = {}) {
     }
   }
 
-  async function saveToDatabase(level, timestamp, message) {
-    if (!config.dbConfig) return;
+  async function saveToDatabase(logEntry) {
+    if (!config.dbConfig || !LogModel || !loggerConnection) return;
 
     try {
-      // Implementation would depend on database type
-      // This is a placeholder for the database implementation
-      if (config.dbConfig.type === "mongodb") {
-        // MongoDB implementation would go here
-      } else if (config.dbConfig.type === "sql") {
-        // SQL implementation would go here
+      // Check specific connection status (not global mongoose)
+      if (loggerConnection.readyState !== 1) {
+        console.warn("Logger MongoDB not connected, skipping database save");
+        return;
       }
+
+      await LogModel.create({
+        level: logEntry.level,
+        timestamp: new Date(logEntry.timestamp),
+        message: logEntry.message,
+        createdAt: new Date(),
+        ...logEntry, // Include any additional fields
+      });
     } catch (err) {
       console.error("Failed to save log to database:", err);
+
+      // Optional: Add to retry queue or fallback mechanism
+      if (err.name === "MongoNetworkError") {
+        console.log("Network error - consider implementing retry logic");
+      }
     }
   }
 
@@ -359,8 +498,11 @@ function createLogManager(options = {}) {
 
   // ====== Core Logging Function ======
   async function log(level, ...args) {
+    // Fixed: Better handling of custom log levels
     if (!config.levels.includes(level)) {
-      throw new Error(`Invalid log level: ${level}`);
+      // If level is not recognized, treat it as a message and use default level
+      args.unshift(level);
+      level = config.defaultLevel;
     }
 
     const message = args
@@ -406,7 +548,7 @@ function createLogManager(options = {}) {
 
     // Save to database if configured
     if (config.dbConfig) {
-      await saveToDatabase(level, timestamp, message);
+      saveToDatabase(logEntry);
     }
 
     // Console output
@@ -497,7 +639,7 @@ function createLogManager(options = {}) {
       );
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      res.setHeader("X-Powered-By", "Enhanced Log Manager");
+      res.setHeader("X-Powered-By", "Nodeloggerg");
 
       // Authorization check
       if (config.authEnabled) {
@@ -720,66 +862,109 @@ function createLogManager(options = {}) {
   function filterLogs(level, search, startDate, endDate) {
     let logs = [];
 
-    // If we have logs in memory, use those
-    if (logBuffer.length > 0) {
-      logs = [...logBuffer];
-    }
-    // Otherwise read from file
-    else if (
-      fs.existsSync(path.join(config.logDir, config.logFile.split("/").pop()))
-    ) {
-      try {
-        const content = fs.readFileSync(
-          path.join(config.logDir, config.logFile.split("/").pop()),
-          "utf8"
-        );
+    // Fixed: Always read from file first to get complete history
+    const logFile = path.join(config.logDir, path.parse(config.logFile).base);
 
-        logs = content
+    // Read from file if it exists
+    if (fs.existsSync(logFile)) {
+      try {
+        const content = fs.readFileSync(logFile, "utf8");
+
+        const fileLogs = content
           .split("\n")
           .filter((line) => line.trim() !== "")
           .map((line) => {
-            // Parse timestamp and level from log line
-            const timestampMatch = line.match(/\[(.*?)\]/);
-            const levelMatch = line.match(/\[(INFO|WARN|ERROR|DEBUG)\]/i);
+            // Fixed: Better parsing to handle custom log levels
+            const timestampMatch = line.match(/\[([\d-]+ [\d:]+)\]/);
+            // Fixed: Use a more flexible regex that captures any level in brackets
+            const levelMatch = line.match(/\]\s*\[([^\]]+)\]:/);
+
+            // Extract the actual message after the log format
+            let message = line;
+            if (timestampMatch && levelMatch) {
+              const afterLevel = line.indexOf("]:") + 2;
+              message =
+                afterLevel > 1 ? line.substring(afterLevel).trim() : line;
+            }
 
             return {
               formattedMessage: line,
               timestamp: timestampMatch ? timestampMatch[1] : "",
               level: levelMatch ? levelMatch[1].toLowerCase() : "",
-              message: line,
+              message: message,
             };
           });
+
+        logs.push(...fileLogs);
       } catch (err) {
         console.error("Error reading log file for filtering:", err);
-        return [];
       }
     }
+
+    // Fixed: Merge with in-memory logs (remove duplicates based on timestamp + message)
+    if (logBuffer.length > 0) {
+      const existingKeys = new Set(
+        logs.map((log) => `${log.timestamp}-${log.message}`)
+      );
+
+      const newLogs = logBuffer.filter((log) => {
+        const key = `${log.timestamp}-${log.message}`;
+        return !existingKeys.has(key);
+      });
+
+      logs.push(...newLogs);
+    }
+
+    // Sort by timestamp (newest first)
+    logs.sort((a, b) => {
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
+      return dateB - dateA;
+    });
 
     // Apply filters
     return logs.filter((log) => {
       let include = true;
 
-      if (level && log.level !== level.toLowerCase()) {
-        include = false;
-      }
-
-      if (search && !log.message.toLowerCase().includes(search.toLowerCase())) {
-        include = false;
-      }
-
-      if (startDate) {
-        const logDate = new Date(log.timestamp);
-        const filterDate = new Date(startDate);
-        if (logDate < filterDate) {
+      // Fixed: Better level filtering that handles custom levels
+      if (level && level.trim() !== "") {
+        const filterLevel = level.toLowerCase().trim();
+        const logLevel = (log.level || "").toLowerCase().trim();
+        if (logLevel !== filterLevel) {
           include = false;
         }
       }
 
-      if (endDate) {
-        const logDate = new Date(log.timestamp);
-        const filterDate = new Date(endDate);
-        if (logDate > filterDate) {
+      if (search && search.trim() !== "") {
+        const searchTerm = search.toLowerCase();
+        const searchableText =
+          `${log.message} ${log.formattedMessage}`.toLowerCase();
+        if (!searchableText.includes(searchTerm)) {
           include = false;
+        }
+      }
+
+      if (startDate && startDate.trim() !== "") {
+        try {
+          const logDate = new Date(log.timestamp);
+          const filterDate = new Date(startDate);
+          if (isNaN(logDate.getTime()) || logDate < filterDate) {
+            include = false;
+          }
+        } catch (err) {
+          // If date parsing fails, skip this filter
+        }
+      }
+
+      if (endDate && endDate.trim() !== "") {
+        try {
+          const logDate = new Date(log.timestamp);
+          const filterDate = new Date(endDate);
+          if (isNaN(logDate.getTime()) || logDate > filterDate) {
+            include = false;
+          }
+        } catch (err) {
+          // If date parsing fails, skip this filter
         }
       }
 
@@ -817,28 +1002,29 @@ function createLogManager(options = {}) {
     startServer();
   }
 
-  // Create log methods for each defined level
-  const logMethods = {};
-
-  config.levels.forEach((level) => {
-    logMethods[level] = (...args) => log(level, ...args);
-  });
+  // Initial setup
+  updateLogMethods();
+  await initializeDatabase();
 
   // Public interface
-  return {
+  logManagerInstance = {
     // Core logging methods
     log,
-    ...logMethods,
+    ...currentLogMethods,
 
     // Server control
     startServer,
 
     // Configuration methods
     getConfig: () => ({ ...config }),
-    updateConfig: (newConfig) => {
-      Object.assign(config, newConfig);
-      return { ...config };
+    updateConfig,
+
+    regeneragteLogMethods: () => {
+      updateLogMethods();
+      return Object.keys(currentLogMethods);
     },
+
+    getAvailableLevels: () => [...config.levels],
 
     // Metrics
     getMetrics: () => (config.enableMetrics ? { ...metrics } : null),
@@ -903,6 +1089,8 @@ function createLogManager(options = {}) {
       });
     },
   };
+
+  return logManagerInstance;
 }
 
 module.exports = createLogManager;
