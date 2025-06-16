@@ -72,6 +72,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
  * @typedef {Object} Auth
  * @property {String} [user] - Username to log in
  * @property {String} [pass] - Password to log in
+ * @property {Boolean} [bypassIpCheck] - Whether to use the ip matching functionality or not
  */
 
 /**
@@ -208,6 +209,10 @@ function createLogManager(options = {}) {
       options.serverConfig?.authEnabled !== undefined
         ? options.serverConfig.authEnabled
         : true,
+    bypassIpCheck:
+      options.serverConfig?.auth?.bypassIpCheck !== undefined
+        ? options.serverConfig?.auth?.bypassIpCheck
+        : false,
     compressOldLogs:
       options.compressOldLogs !== undefined ? options.compressOldLogs : true,
     enableMetrics:
@@ -645,10 +650,12 @@ function createLogManager(options = {}) {
       if (config.authEnabled) {
         const clientIP = req.socket.remoteAddress;
 
-        if (!config.allowedIPs.includes(clientIP)) {
-          res.writeHead(403, { "Content-Type": "text/plain" });
-          res.end("Access denied: Your IP is not authorized.");
-          return;
+        if (!config.bypassIpCheck) {
+          if (!config.allowedIPs.includes(clientIP)) {
+            res.writeHead(403, { "Content-Type": "text/plain" });
+            res.end("Access denied: Your IP is not authorized.");
+            return;
+          }
         }
 
         const auth = req.headers["authorization"];
@@ -1004,7 +1011,7 @@ function createLogManager(options = {}) {
 
   // Initial setup
   updateLogMethods();
-  await initializeDatabase();
+  initializeDatabase();
 
   // Public interface
   logManagerInstance = {
