@@ -1,6 +1,6 @@
 {
   "name": "nodeloggerg",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "description": "A simple logger for Node.js",
   "keywords": [
     "logger",
@@ -17,7 +17,8 @@
     "package.json",
     "LICENSE",
     "README.md",
-    "webpage.ejs"
+    "webpage.ejs",
+    "nodeloggerg.d.ts"
   ],
   "dependencies": {
     "ejs": "^3.1.10",

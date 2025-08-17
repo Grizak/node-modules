@@ -9,7 +9,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { Server as HTTPServer } from "http";
 import { EventEmitter } from "events";
 
-declare module "your-log-manager-module" {
+declare module "nodeloggerg" {
   // ====== Core Type Definitions ======
 
   /**
@@ -381,6 +381,6 @@ declare global {
 }
 
 // Extend the LogManager interface with custom methods
-declare module "your-log-manager-module" {
+declare module "nodeloggerg" {
   interface LogManager extends LogManagerTypes.CustomLogMethods {}
 }
