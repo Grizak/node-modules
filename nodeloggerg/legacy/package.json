@@ -1,0 +1,31 @@
+{
+  "name": "nodeloggerg",
+  "version": "4.3.2",
+  "description": "A simple logger for Node.js",
+  "keywords": [
+    "logger",
+    "log",
+    "logging",
+    "nodejs",
+    "node"
+  ],
+  "main": "app.js",
+  "author": "grizak",
+  "license": "MIT",
+  "files": [
+    "app.js",
+    "package.json",
+    "LICENSE",
+    "README.md",
+    "webpage.ejs",
+    "nodeloggerg.d.ts"
+  ],
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "mongoose": "^8.15.1",
+    "nodemailer": "^6.10.1",
+    "socket.io": "^4.8.1"
+  },
+  "type": "commonjs",
+  "types": "nodeloggerg.d.ts"
+}

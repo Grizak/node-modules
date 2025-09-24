@@ -1,0 +1,39 @@
+{
+  "name": "nodeloggerg",
+  "version": "5.0.0",
+  "description": "A simple logger for Node.js",
+  "main": "dist/nodeloggerg.min.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec tsx src/index.ts",
+    "build": "webpack"
+  },
+  "keywords": [
+    "logger",
+    "log",
+    "logging",
+    "nodejs",
+    "node"
+  ],
+  "author": "Isak Grönlund <gronlundisak11@gmail.com> (https://isaksweb.xyz)",
+  "license": "MIT",
+  "packageManager": "pnpm@10.17.0",
+  "files": [
+    "dist",
+    "package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "copy-webpack-plugin": "^13.0.1",
+    "nodemon": "^3.1.10",
+    "terser-webpack-plugin": "^5.3.14",
+    "ts-loader": "^9.5.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  }
+}

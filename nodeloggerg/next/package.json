@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter backend run dev\" \"pnpm --filter web run dev\"",
+    "prerelease": "pnpm --filter client build && cd backend && pnpm build",
+    "release": "node scripts/release.js"
+  },
+  "packageManager": "pnpm@10.17.0",
+  "type": "module"
+}
